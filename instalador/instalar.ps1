@@ -162,6 +162,10 @@ Ok "Ambiente Python isolado criado"
 
 Write-Host "  Instalando as bibliotecas (pode levar alguns minutos)..."
 $pacotes = @("faster-whisper", "sounddevice", "numpy", "pystray", "pillow", "comtypes")
+# Com placa NVIDIA, as bibliotecas de CUDA entram no próprio ambiente do programa:
+# o motor de transcrição precisa delas para usar a placa, e o computador de quem
+# instala não precisa ter o CUDA instalado à parte.
+if (-not $modoCPU) { $pacotes += @("nvidia-cublas-cu12", "nvidia-cudnn-cu12", "nvidia-cuda-nvrtc-cu12") }
 & $uv pip install --python "$DESTINO\.venv\Scripts\python.exe" @pacotes
 Ok "Bibliotecas instaladas"
 

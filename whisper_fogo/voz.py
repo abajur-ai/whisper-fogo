@@ -236,8 +236,13 @@ class WhisperFogo:
                 # Placa NVIDIA quando existir; senão CPU em int8, que é o que
                 # roda num Mac ou numa máquina sem GPU. Mais lento, mas o
                 # programa funciona.
+                # O teste com meio segundo de silêncio confirma que a placa
+                # transcreve de verdade: as bibliotecas de CUDA só são lidas na
+                # primeira transcrição, e não na carga do modelo.
                 try:
-                    self.modelo = WhisperModel(MODELO, device="cuda", compute_type=COMPUTE)
+                    modelo = WhisperModel(MODELO, device="cuda", compute_type=COMPUTE)
+                    list(modelo.transcribe(np.zeros(TAXA // 2, dtype=np.float32), language="pt")[0])
+                    self.modelo = modelo
                 except Exception as e:
                     print(f"[sem GPU, indo de CPU] {e}", file=sys.stderr)
                     self.modelo = WhisperModel(MODELO, device="cpu", compute_type="int8")
