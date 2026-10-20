@@ -54,7 +54,8 @@ jobs:
         run: |
           $p = "motor"
           New-Item -ItemType Directory $p | Out-Null
-          Copy-Item build\bin\Release\*.exe, build\bin\Release\*.dll $p
+          # só o servidor e o que ele carrega: whisper, ggml e as variantes de placa e de processador
+          Copy-Item build\bin\Release\whisper-server.exe, build\bin\Release\whisper.dll, build\bin\Release\ggml*.dll $p
           # bibliotecas de execução do Visual C++, para máquina que não as tenha
           foreach ($d in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") {
             Copy-Item "C:\Windows\System32\$d" $p
