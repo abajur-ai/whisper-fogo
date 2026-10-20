@@ -559,9 +559,11 @@ def iniciar_com_o_sistema():
     import winreg
     pythonw = BASE / ".venv" / "Scripts" / "pythonw.exe"
     try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                            r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
-                            winreg.KEY_SET_VALUE) as chave:
+        # CreateKeyEx abre a chave e a cria quando ainda não existe, que é o caso
+        # de uma conta nova sem nenhum programa iniciando com o sistema.
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER,
+                                r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                                winreg.KEY_SET_VALUE) as chave:
             winreg.SetValueEx(chave, "Whisper Fogo", 0, winreg.REG_SZ,
                               f'"{pythonw}" "{BASE / "voz.py"}"')
     except OSError as e:
