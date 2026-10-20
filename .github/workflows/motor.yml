@@ -98,8 +98,9 @@ jobs:
 
       - name: Compilar
         run: |
+          # sem o BLAS do Accelerate, que exigiria macOS 13.3: o binário roda do macOS 12 em diante
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 ${{ matrix.opcoes }} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DGGML_BLAS=OFF ${{ matrix.opcoes }} \
             -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON -DWHISPER_BUILD_SERVER=ON -DWHISPER_SDL2=OFF
           cmake --build build --config Release -j 4 --target whisper-server
 
