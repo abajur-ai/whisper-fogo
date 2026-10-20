@@ -1,0 +1,124 @@
+# Compila o motor de transcrição (whisper-server, do whisper.cpp) para cada
+# sistema e anexa os pacotes a uma release.
+#
+# Windows: as bibliotecas de placa são carregadas na hora de abrir. Com Vulkan
+# na máquina (NVIDIA, AMD ou Intel), a transcrição vai para a placa; sem ele, o
+# processador assume, na variante mais rápida que a CPU suportar.
+# macOS: Metal no Apple Silicon; processador no Mac Intel.
+
+name: Motor de transcrição
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release que recebe os pacotes (vazio: só compila)"
+        required: false
+  push:
+    branches: [motor-whispercpp]
+    paths: [.github/workflows/motor.yml]
+
+env:
+  WHISPER_CPP: v1.9.5
+  VULKAN_VERSION: 1.4.357.0
+  VAD: https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ggml-org/whisper.cpp
+          ref: ${{ env.WHISPER_CPP }}
+
+      - name: SDK do Vulkan
+        run: |
+          curl.exe -fsSL -o "$env:RUNNER_TEMP\vulkan.exe" "https://sdk.lunarg.com/sdk/download/$env:VULKAN_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_VERSION.exe"
+          & "$env:RUNNER_TEMP\vulkan.exe" --accept-licenses --default-answer --confirm-command install
+          Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\$env:VULKAN_VERSION"
+          Add-Content $env:GITHUB_PATH "C:\VulkanSDK\$env:VULKAN_VERSION\bin"
+
+      - name: Compilar
+        run: |
+          cmake -S . -B build -A x64 `
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
+            -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_NATIVE=OFF -DGGML_VULKAN=ON `
+            -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON -DWHISPER_BUILD_SERVER=ON -DWHISPER_SDL2=OFF
+          cmake --build build --config Release -j 4
+
+      - name: Empacotar
+        run: |
+          $p = "motor"
+          New-Item -ItemType Directory $p | Out-Null
+          Copy-Item build\bin\Release\*.exe, build\bin\Release\*.dll $p
+          # bibliotecas de execução do Visual C++, para máquina que não as tenha
+          foreach ($d in "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") {
+            Copy-Item "C:\Windows\System32\$d" $p
+          }
+          curl.exe -fsSL -o "$p\ggml-silero-v6.2.0.bin" $env:VAD
+          Copy-Item LICENSE "$p\LICENSE-whisper.cpp.txt"
+          Get-ChildItem $p | Format-Table Name, Length
+          Compress-Archive -Path "$p\*" -DestinationPath motor-windows-x64.zip
+
+      - name: Conferir que abre sem placa
+        run: |
+          cd motor
+          .\whisper-server.exe --help | Select-Object -First 3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: motor-windows-x64
+          path: motor-windows-x64.zip
+
+      - name: Anexar à release
+        if: ${{ inputs.tag != '' && inputs.tag != null }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.tag }}" motor-windows-x64.zip --clobber --repo "${{ github.repository }}"
+
+  macos:
+    runs-on: macos-14
+    strategy:
+      matrix:
+        include:
+          - arq: arm64
+            opcoes: -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON
+          - arq: x64
+            opcoes: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DGGML_METAL=OFF -DGGML_NATIVE=OFF
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ggml-org/whisper.cpp
+          ref: ${{ env.WHISPER_CPP }}
+
+      - name: Compilar
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 ${{ matrix.opcoes }} \
+            -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON -DWHISPER_BUILD_SERVER=ON -DWHISPER_SDL2=OFF
+          cmake --build build --config Release -j 4 --target whisper-server
+
+      - name: Empacotar
+        run: |
+          mkdir motor
+          cp build/bin/whisper-server motor/
+          curl -fsSL -o motor/ggml-silero-v6.2.0.bin "$VAD"
+          cp LICENSE motor/LICENSE-whisper.cpp.txt
+          file motor/whisper-server
+          otool -L motor/whisper-server
+          (cd motor && zip -q -X ../motor-macos-${{ matrix.arq }}.zip *)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: motor-macos-${{ matrix.arq }}
+          path: motor-macos-${{ matrix.arq }}.zip
+
+      - name: Anexar à release
+        if: ${{ inputs.tag != '' && inputs.tag != null }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.tag }}" motor-macos-${{ matrix.arq }}.zip --clobber --repo "${{ github.repository }}"
