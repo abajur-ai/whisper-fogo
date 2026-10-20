@@ -1,0 +1,24 @@
+# Ambiente e dependências
+.venv/
+__pycache__/
+*.pyc
+
+# 🔴 Dados de quem usa. Nada disto pode ir para o repositório.
+historico.jsonl
+aprendido.json
+dicionario.json
+atalhos.json
+versao_instalada.json
+versao_anterior/
+voz.log
+instancia.lock
+falha-*.wav
+*.tmp
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Anexos de instalação gerados por script
+dist/
