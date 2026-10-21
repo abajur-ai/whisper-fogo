@@ -29,7 +29,6 @@ PYTHON="$VENV/bin/python"
 DADOS="$HOME/Library/Application Support/WhisperFogo"
 RELEASE="https://api.github.com/repos/abajur-ai/whisper-fogo/releases/latest"
 REPO_ZIP="https://github.com/abajur-ai/whisper-fogo/archive/refs/heads/main.zip"
-MODELO="large-v3-turbo"
 
 titulo() { printf "\n\033[36m=== %s ===\033[0m\n" "$1"; }
 ok()     { printf "  \033[32m[ok]\033[0m %s\n" "$1"; }
@@ -57,7 +56,7 @@ ok "macOS $(sw_vers -productVersion)"
 
 arquitetura="$(uname -m)"
 if [[ "$arquitetura" == "arm64" ]]; then
-  ok "Apple Silicon ($(sysctl -n machdep.cpu.brand_string))"
+  ok "Apple Silicon ($(sysctl -n machdep.cpu.brand_string)), transcrição na placa pelo Metal"
 else
   aviso "Mac Intel. A transcrição roda na CPU e fica bem mais lenta."
 fi
@@ -146,18 +145,16 @@ ok "Ambiente Python isolado criado"
 
 echo "  Instalando as bibliotecas (pode levar alguns minutos)..."
 uv pip install --python "$PYTHON" \
-  faster-whisper sounddevice numpy pystray pillow pynput pyobjc-framework-Quartz
+  sounddevice numpy pystray pillow pynput pyobjc-framework-Quartz
 ok "Bibliotecas instaladas"
 
 # -------------------------------------------------------------------- modelos
-titulo "Baixando o modelo de transcrição"
-echo "  large-v3-turbo, 1,6 GB. Só acontece uma vez."
-"$PYTHON" - <<PY
-from faster_whisper import WhisperModel
-WhisperModel("$MODELO", device="cpu", compute_type="int8")
-print("modelo pronto")
-PY
-ok "Modelo de transcrição no lugar"
+titulo "Baixando o motor e o modelo de transcrição"
+echo "  Motor whisper.cpp e modelo large-v3-turbo, 1,6 GB. Só acontece uma vez."
+# O motor e o modelo moram na pasta de dados, fora do aplicativo assinado.
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$DESTINO/motor.py" --preparar \
+  || { erro "Não consegui baixar o motor. Confira a conexão e rode de novo: o download continua de onde parou."; exit 1; }
+ok "Motor e modelo no lugar"
 
 # --------------------------------------------------------------- dicionario
 [[ -f "$DADOS/dicionario.json" ]] || cp "$origem/whisper_fogo/dicionario.exemplo.json" "$DADOS/dicionario.json" 2>/dev/null || true
@@ -200,7 +197,7 @@ titulo "Conferindo a instalação"
 # A conferência é informativa: o programa já está instalado neste ponto, e o
 # resultado de cada suíte aparece na tela sem interromper o restante.
 export PYTHONDONTWRITEBYTECODE=1
-for t in corrigir.py tema.py grafias.py atualizacao.py; do
+for t in corrigir.py tema.py grafias.py atualizacao.py motor.py; do
   "$PYTHON" "$DESTINO/$t" 2>&1 | tail -1 || true
 done
 # o historico.py abre a janela quando chamado sem argumento, por isso o --teste

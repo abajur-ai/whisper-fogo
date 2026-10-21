@@ -59,17 +59,13 @@ def ligar_log():
         except Exception:
             pass
 
-# As DLLs de CUDA moram dentro do venv. PATH do processo, não do Windows.
-_bins = [str(p) for _s in ("cublas", "cudnn", "cuda_nvrtc")
-         if (p := BASE / ".venv" / "Lib" / "site-packages" / "nvidia" / _s / "bin").is_dir()]
-os.environ["PATH"] = os.pathsep.join(_bins + [os.environ["PATH"]])
-
 import numpy as np
 import sounddevice as sd
 
 import aprendizado
 import atalhos
 import atualizacao
+import motor
 import observador
 from clip import colar, escrever as clipboard_escrever, ler as clipboard_ler
 from corrigir import corrigir
@@ -77,9 +73,7 @@ from historico import registrar
 from teclado import Teclado
 
 # ---------------- configuração ----------------
-MODELO = "large-v3-turbo"
-COMPUTE = "float16"
-OCIOSO_MIN = 10           # minutos sem uso até liberar a VRAM
+OCIOSO_MIN = 10          # minutos sem uso até liberar a VRAM
 TAXA = 16000              # o Whisper trabalha em 16 kHz mono
 # Trava de segurança contra microfone esquecido aberto, e não limite de uso:
 # quem está em fluxo fala meia hora seguida. Uma hora de áudio ocupa 230 MB de
@@ -225,27 +219,23 @@ class WhisperFogo:
             time.sleep(0.5)
 
     def liberar_gpu(self):
-        self.modelo = None
+        self._descarregar()
         self.estado()
+
+    def _descarregar(self):
+        """O motor sai da placa num segundo plano: se houver transcrição em
+        curso, ela termina antes, e o menu da bandeja não fica preso esperando."""
+        modelo, self.modelo = self.modelo, None
+        if modelo:
+            threading.Thread(target=modelo.liberar, daemon=True).start()
 
     # ---------- modelo ----------
     def carregar(self):
         with self.lock:
             if self.modelo is None:
-                from faster_whisper import WhisperModel
-                # Placa NVIDIA quando existir; senão CPU em int8, que é o que
-                # roda num Mac ou numa máquina sem GPU. Mais lento, mas o
-                # programa funciona.
-                # O teste com meio segundo de silêncio confirma que a placa
-                # transcreve de verdade: as bibliotecas de CUDA só são lidas na
-                # primeira transcrição, e não na carga do modelo.
-                try:
-                    modelo = WhisperModel(MODELO, device="cuda", compute_type=COMPUTE)
-                    list(modelo.transcribe(np.zeros(TAXA // 2, dtype=np.float32), language="pt")[0])
-                    self.modelo = modelo
-                except Exception as e:
-                    print(f"[sem GPU, indo de CPU] {e}", file=sys.stderr)
-                    self.modelo = WhisperModel(MODELO, device="cpu", compute_type="int8")
+                # Placa de vídeo de qualquer fabricante quando houver (Vulkan no
+                # Windows, Metal no Mac); senão o processador. Ver motor.py.
+                self.modelo = motor.Motor()
             self.ultimo_uso = time.time()
             return self.modelo
 
@@ -262,9 +252,7 @@ class WhisperFogo:
             if self.estado_atual() != "carregado":
                 return
             if time.time() - self.ultimo_uso > OCIOSO_MIN * 60:
-                self.modelo = None
-                import gc
-                gc.collect()
+                self._descarregar()
                 self.estado()
 
     # ---------- gravação ----------
@@ -353,17 +341,10 @@ class WhisperFogo:
         t0 = time.perf_counter()
         try:
             m = self.carregar()
-            # As grafias aprendidas entram como hotword, igual ao "primed
+            # As grafias aprendidas entram como vocabulário, igual ao "primed
             # dictionary context" do Wispr: melhor o ASR já acertar do que
             # depender da substituição depois.
-            segs, _ = m.transcribe(
-                audio, language="pt", beam_size=5, vad_filter=True,
-                hotwords=hotwords(),
-                # Alimentar o próprio texto de volta faz o Whisper entrar em loop
-                # de repetição em fala longa, e aí a transcrição nunca termina. É
-                # por isso que o padrão do faster-whisper é desligado.
-                condition_on_previous_text=False)
-            texto = corrigir(" ".join(s.text.strip() for s in segs))
+            texto = corrigir(m.transcrever(audio, hotwords()))
         except Exception:
             self._salvar_audio(audio)    # falhou a transcrição, o áudio não se perde
             raise
@@ -577,6 +558,7 @@ def main():
         print("Whisper Fogo já está rodando.", file=sys.stderr)
         return
     iniciar_com_o_sistema()
+    motor.preparar_em_segundo_plano()
     app = WhisperFogo()
     app.teclado = Teclado(app)
     threading.Thread(target=app.trabalhador, daemon=True).start()

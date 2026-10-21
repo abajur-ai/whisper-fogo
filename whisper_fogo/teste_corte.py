@@ -79,7 +79,8 @@ def teste_icone_segue_o_estado_real_em_gravacao_longa():
     app = preparar()
     voz.MAX_SEGUNDOS = 60
     app.tray = BandejaFalsa()
-    app.modelo = object()                     # modelo na GPU
+    liberado = threading.Event()
+    app.modelo = type("M", (), {"liberar": lambda self: liberado.set()})()   # modelo na GPU
     app.iniciar()
     assert app.tray.title.endswith("(gravando)")
     app.ultimo_uso = time.time() - voz.OCIOSO_MIN * 60 - 1   # fala já passou dos 10 min
@@ -103,6 +104,7 @@ def teste_icone_segue_o_estado_real_em_gravacao_longa():
     app.ultimo_uso = time.time() - voz.OCIOSO_MIN * 60 - 1   # agora sim, 10 min parado
     app.liberar_se_ocioso()
     assert app.modelo is None and app.tray.title.endswith("(ocioso)")
+    assert liberado.wait(2), "o motor não saiu da placa"
 
 
 if __name__ == "__main__":

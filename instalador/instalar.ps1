@@ -12,16 +12,12 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false
 $ProgressPreference = "SilentlyContinue"
 
-# O huggingface_hub cospe sete linhas sobre symlink do Windows em todo download.
-# Nada disso muda o resultado aqui, e só polui a tela de quem está instalando.
-$env:HF_HUB_DISABLE_SYMLINKS_WARNING = "1"
 $env:PYTHONWARNINGS = "ignore"
 
 $DESTINO   = Join-Path $env:LOCALAPPDATA "WhisperFogo"
 $RELEASE   = "https://api.github.com/repos/abajur-ai/whisper-fogo/releases/latest"
 $REPO_ZIP  = "https://github.com/abajur-ai/whisper-fogo/archive/refs/heads/main.zip"
 $UV_URL    = "https://astral.sh/uv/install.ps1"
-$MODELO    = "large-v3-turbo"
 
 function Titulo($t) { Write-Host "`n=== $t ===" -ForegroundColor Cyan }
 function Ok($t)     { Write-Host "  [ok] $t" -ForegroundColor Green }
@@ -57,32 +53,15 @@ $livreGB = [math]::Round((Get-PSDrive -Name ($env:LOCALAPPDATA.Substring(0,1))).
 if ($livreGB -ge 6) { Ok "Espaço livre em disco: $livreGB GB" }
 else { $problemas += "Faltam $([math]::Round(6 - $livreGB, 1)) GB de espaço. A instalação completa ocupa cerca de 4 GB." }
 
-# Placa de vídeo NVIDIA e VRAM
-$usarGPU = $false
-$vramGB = 0
-$nvidia = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -match "NVIDIA" } | Select-Object -First 1
-if ($nvidia) {
-    try {
-        $saida = & nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits 2>$null
-        if ($saida) {
-            $partes = $saida.Split(",")
-            $vramGB = [math]::Round([int]$partes[1].Trim() / 1024, 1)
-            Ok "Placa de vídeo: $($partes[0].Trim()), $vramGB GB de VRAM"
-            $usarGPU = $true
-        }
-    } catch { }
-    if (-not $usarGPU) {
-        Ok "Placa de vídeo: $($nvidia.Name)"
-        $avisos += "Não consegui ler a VRAM pelo nvidia-smi. Instale o driver mais novo da NVIDIA."
-        $usarGPU = $true
-    }
-} else {
-    $avisos += "Não encontrei placa NVIDIA. O programa vai rodar na CPU, várias vezes mais lento."
-}
-
-if ($usarGPU -and $vramGB -gt 0 -and $vramGB -lt 4) {
-    $avisos += "Sua VRAM é de $vramGB GB. Abaixo de 4 GB o modelo pode não caber na placa."
-}
+# Placa de vídeo: qualquer fabricante serve (NVIDIA, AMD ou Intel, dedicada ou
+# integrada). O motor fala com ela pelo Vulkan, que vem no driver de vídeo.
+# Adaptador genérico do Windows, de máquina virtual ou de acesso remoto não conta.
+$placas = @(Get-CimInstance Win32_VideoController |
+    Where-Object { $_.Name -notmatch "Microsoft Basic|Remote|VMware|VirtualBox|Hyper-V|Parsec|Citrix" } |
+    ForEach-Object { $_.Name })
+$usarGPU = $placas.Count -gt 0
+if ($usarGPU) { foreach ($p in $placas) { Ok "Placa de vídeo: $p" } }
+else { $avisos += "Não encontrei placa de vídeo. O programa vai rodar no processador, várias vezes mais lento." }
 
 foreach ($a in $avisos) { Aviso $a }
 if ($problemas.Count) {
@@ -103,7 +82,7 @@ if ($modoCPU) {
 # --------------------------------------------------------------- o que baixar
 Titulo "O que vai ser instalado"
 Write-Host "  Pasta            : $DESTINO"
-Write-Host "  Transcrição      : Whisper large-v3-turbo (1,6 GB)"
+Write-Host "  Transcrição      : Whisper large-v3-turbo (1,6 GB), motor whisper.cpp"
 Write-Host ""
 
 # ------------------------------------------------------------------- programa
@@ -161,26 +140,17 @@ Push-Location $DESTINO
 Ok "Ambiente Python isolado criado"
 
 Write-Host "  Instalando as bibliotecas (pode levar alguns minutos)..."
-$pacotes = @("faster-whisper", "sounddevice", "numpy", "pystray", "pillow", "comtypes")
-# Com placa NVIDIA, as bibliotecas de CUDA entram no próprio ambiente do programa:
-# o motor de transcrição precisa delas para usar a placa, e o computador de quem
-# instala não precisa ter o CUDA instalado à parte.
-if (-not $modoCPU) { $pacotes += @("nvidia-cublas-cu12", "nvidia-cudnn-cu12", "nvidia-cuda-nvrtc-cu12") }
+$pacotes = @("sounddevice", "numpy", "pystray", "pillow", "comtypes")
 & $uv pip install --python "$DESTINO\.venv\Scripts\python.exe" @pacotes
 Ok "Bibliotecas instaladas"
 
 # ------------------------------------------------------------------- modelos
-Titulo "Baixando o modelo de transcrição"
-Write-Host "  large-v3-turbo, 1,6 GB. Só acontece uma vez."
+Titulo "Baixando o motor e o modelo de transcrição"
+Write-Host "  Motor whisper.cpp e modelo large-v3-turbo, 1,6 GB. Só acontece uma vez."
 $py = "$DESTINO\.venv\Scripts\python.exe"
-$computeTipo = if ($modoCPU) { "int8" } else { "float16" }
-$dispositivo = if ($modoCPU) { "cpu" } else { "cuda" }
-& $py -c @"
-from faster_whisper import WhisperModel
-WhisperModel('$MODELO', device='$dispositivo', compute_type='$computeTipo')
-print('modelo pronto')
-"@
-Ok "Modelo de transcrição no lugar"
+& $py (Join-Path $DESTINO "motor.py") --preparar
+if ($LASTEXITCODE -ne 0) { Erro "Não consegui baixar o motor. Confira a conexão e rode o instalador de novo: o download continua de onde parou."; Read-Host; exit 1 }
+Ok "Motor e modelo no lugar"
 
 # --------------------------------------------------------------- dicionario
 if (-not (Test-Path "$DESTINO\dicionario.json")) {
@@ -232,7 +202,7 @@ else {
 
 # --------------------------------------------------------------------- testes
 Titulo "Conferindo a instalação"
-foreach ($t in @("corrigir.py", "observador.py", "tema.py", "atalhos.py", "grafias.py", "atualizacao.py")) {
+foreach ($t in @("corrigir.py", "observador.py", "tema.py", "atalhos.py", "grafias.py", "atualizacao.py", "motor.py")) {
     $saida = & $py (Join-Path $DESTINO $t) 2>&1 | Select-Object -Last 1
     Write-Host "  $saida"
 }

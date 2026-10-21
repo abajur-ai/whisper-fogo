@@ -15,6 +15,9 @@ instancia.lock
 falha-*.wav
 *.tmp
 
+# Motor e modelo, baixados na primeira vez que o programa abre
+motor/
+
 # Sistema
 .DS_Store
 Thumbs.db
