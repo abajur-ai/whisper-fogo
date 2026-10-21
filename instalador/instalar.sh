@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Instalador do Whisper Fogo para macOS (versão beta).
+# Instalador do Whisper Fogo para macOS.
 #
 # Instala um aplicativo só, em ~/Applications, com o interpretador, as
 # bibliotecas, o código e os modelos dentro dele. O macOS então pede microfone e
@@ -42,7 +42,7 @@ cat <<'ARTE'
 
   ####   WHISPER FOGO
   ####   Transcrição de voz grátis e offline, especialista em língua portuguesa.
-         Um produto da Abajur (abajur.ai). Instalador para macOS, versão beta
+         Um produto da Abajur (abajur.ai). Instalador para macOS
 
 ARTE
 
@@ -295,6 +295,7 @@ fi
 # Sobe agora, para o ícone já aparecer na barra de menus.
 open "$APP" 2>/dev/null && ok "Whisper Fogo aberto"
 
+if (( refazer_app )); then
 cat <<'FIM'
 
   Pronto. Antes do primeiro uso, o macOS vai exigir duas permissões:
@@ -302,13 +303,21 @@ cat <<'FIM'
     Ajustes > Privacidade e Segurança > Microfone ......... marque o Whisper Fogo
     Ajustes > Privacidade e Segurança > Acessibilidade ... marque o Whisper Fogo
 
-  Sem a segunda, o atalho global não funciona.
+  Sem a segunda, o atalho global não funciona. É uma vez só: as atualizações
+  seguintes não pedem de novo.
+FIM
+else
+cat <<'FIM'
+
+  Pronto. As permissões de microfone e acessibilidade que você já deu continuam
+  valendo.
+FIM
+fi
+cat <<'FIM'
 
   Como usar:
     Segure a tecla Fn ............. fala e solta, o texto cola sozinho
     Fn + Espaço ................... mãos livres, a Fn de novo encerra
     Ícone na barra de menus ....... abre o painel administrativo
-
-  Esta é a versão beta para macOS: o Whisper Fogo para Mac ainda está em teste.
 
 FIM

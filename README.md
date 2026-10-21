@@ -11,9 +11,9 @@ Sem nuvem, sem mensalidade, sem conta para criar.
 
 <br>
 
-<a href="https://github.com/abajur-ai/whisper-fogo/releases/latest/download/Instalar-Whisper-Fogo.bat"><img src="docs/img/botao-windows.svg" alt="Baixar o instalador para Windows" height="28"></a>&nbsp;&nbsp;<a href="https://github.com/abajur-ai/whisper-fogo/releases/latest/download/Instalar-Whisper-Fogo.zip"><img src="docs/img/botao-macos.svg" alt="Baixar o instalador para macOS, versão beta" height="28"></a>
+<a href="https://github.com/abajur-ai/whisper-fogo/releases/latest/download/Instalar-Whisper-Fogo.bat"><img src="docs/img/botao-windows.svg" alt="Baixar o instalador para Windows" height="28"></a>&nbsp;&nbsp;<a href="https://github.com/abajur-ai/whisper-fogo/releases/latest/download/Instalar-Whisper-Fogo.zip"><img src="docs/img/botao-macos.svg" alt="Baixar o instalador para macOS" height="28"></a>
 
-<sub><b>Windows:</b> versão estável. <b>macOS:</b> versão beta, ainda em teste.<br>
+<sub><b>Windows</b> 10 e 11. <b>macOS</b> 11 em diante no Apple Silicon e 10.15 em diante no Intel.<br>
 Na primeira abertura, os dois sistemas mostram um aviso de segurança, porque o programa não é assinado com conta paga.
 <a href="#instalação">Veja o passo a passo</a>.</sub>
 
@@ -211,7 +211,8 @@ Disponível no Windows. No macOS as teclas são as do sistema (`Fn`).
   histórico, o seu dicionário e as suas teclas, e o programa reinicia sozinho.
 - **Verificar atualização**, no mesmo menu, faz a conferência na hora que você quiser.
 
-No macOS, a atualização abre a página da versão nova para baixar.
+No macOS é igual: a atualização troca só o código do programa, e as permissões de
+microfone e acessibilidade continuam valendo.
 
 ---
 
@@ -226,7 +227,7 @@ programa. Não mexe em nada fora da pasta dele.
 
 <div align="center">
 
-<a href="https://github.com/abajur-ai/whisper-fogo/releases/latest/download/Instalar-Whisper-Fogo.bat"><img src="docs/img/botao-windows.svg" alt="Baixar o instalador para Windows" height="28"></a>&nbsp;&nbsp;<a href="https://github.com/abajur-ai/whisper-fogo/releases/latest/download/Instalar-Whisper-Fogo.zip"><img src="docs/img/botao-macos.svg" alt="Baixar o instalador para macOS, versão beta" height="28"></a>
+<a href="https://github.com/abajur-ai/whisper-fogo/releases/latest/download/Instalar-Whisper-Fogo.bat"><img src="docs/img/botao-windows.svg" alt="Baixar o instalador para Windows" height="28"></a>&nbsp;&nbsp;<a href="https://github.com/abajur-ai/whisper-fogo/releases/latest/download/Instalar-Whisper-Fogo.zip"><img src="docs/img/botao-macos.svg" alt="Baixar o instalador para macOS" height="28"></a>
 
 </div>
 
@@ -242,7 +243,7 @@ autorização.
 3. A instalação corre até o fim, cria o atalho no Desktop e no menu Iniciar e abre
    o programa na bandeja.
 
-**No macOS (beta)**
+**No macOS**
 
 1. O download é um arquivo compactado. Dê dois cliques nele para sair o aplicativo
    **Instalar Whisper Fogo**.
@@ -257,7 +258,11 @@ autorização.
    o Mac.
 
 Na primeira gravação, o macOS pede **Microfone** e **Acessibilidade**, as duas em
-nome do Whisper Fogo.
+nome do Whisper Fogo. É uma vez só: as atualizações seguintes não pedem de novo.
+
+O instalador também reserva a tecla `Fn` para o Whisper Fogo. Sozinha, ela deixa de
+abrir o ditado da Apple, os emojis ou a troca de idioma, que disparariam junto com
+cada ditado.
 
 ### Para quem quer mexer no código
 
@@ -284,24 +289,26 @@ Iris Xe integrada e RTX 4050 de 6 GB, com 11 minutos de fala real em português.
 
 |  | Mínimo | Recomendado | Ideal |
 |---|---|---|---|
+| **Sistema** | Windows 10, 64 bits | Windows 10 ou 11 | Windows 11 |
 | **Placa de vídeo** | nenhuma, roda no processador | integrada recente (Intel Iris Xe, AMD Radeon) | dedicada NVIDIA, AMD ou Intel Arc com 4 GB ou mais |
 | **Memória da placa livre** | zero | usa a memória do sistema | 2 GB |
 | **Memória RAM** | 4 GB | 8 GB | 16 GB ou mais |
 | **Disco** | 1,1 GB | 1,8 GB | 1,8 GB |
 | **Velocidade** | ~0,6x o tempo real | ~4,6x | ~16x |
 
-**No macOS (beta)**
+**No macOS**
 
 |  | Mínimo | Recomendado | Ideal |
 |---|---|---|---|
 | **Chip** | Intel Core i5 (só processador) | Apple Silicon M1 ou M2 | Apple Silicon Pro, Max ou M3 em diante |
-| **Sistema** | macOS 12 | macOS 13 | macOS 14 ou mais novo |
+| **Sistema** | macOS 10.15 (Intel) ou 11 (Apple Silicon) | macOS 13 | macOS 14 ou mais novo |
 | **Memória RAM** | 8 GB | 8 GB | 16 GB ou mais |
 | **Disco** | 1,1 GB | 1,8 GB | 1,8 GB |
+| **Velocidade** | não medida (Intel, só processador) | ~6x o tempo real (M1) | não medida |
 
-No Mac a velocidade da versão 1.5 ainda não foi medida. No Apple Silicon a
-transcrição passa a usar a placa do chip pelo Metal, que é o caminho dos outros
-programas de transcrição para Mac.
+No Apple Silicon a transcrição usa a placa do chip pelo Metal. Medido em 20/10/2026
+num MacBook Air M1 de 8 GB: 10 segundos de fala em 2,9 segundos e 39 segundos em
+6,2 segundos.
 
 **Traduzindo a velocidade:** é quantas vezes mais rápido que o tempo real. Com uma
 placa dedicada, 1 minuto de fala vira texto em uns 4 segundos. Numa placa
@@ -414,7 +421,7 @@ python teste_corte.py      # gravação longa, corte de segurança e cor do íco
 
 ## Windows e macOS
 
-| Recurso | Windows | macOS (beta) |
+| Recurso | Windows | macOS |
 |---|---|---|
 | Ditado com atalho global | `Ctrl` + `Shift` | `Fn` |
 | Teclas regraváveis | sim | não, usa `Fn` |
@@ -423,15 +430,18 @@ python teste_corte.py      # gravação longa, corte de segurança e cor do íco
 | Painel administrativo e Dicionário | sim | sim |
 | Aprender pela sua correção | UI Automation | API de Acessibilidade |
 | Abre com o sistema | sim | sim |
-| Atualização | dentro do programa | abre a página da versão |
+| Atualização | dentro do programa | dentro do programa |
 
 **No Windows** o Whisper Fogo fica em `AppData\Local\WhisperFogo`, com o Python e
 as bibliotecas numa pasta isolada, atalho no Desktop e no menu Iniciar e a chama na
 bandeja ao lado do relógio.
 
-**No macOS** ele é um aplicativo em `~/Applications`, com o Python e as bibliotecas
-dentro dele, na barra de menus e no Dock. Os seus dados ficam em
-`~/Library/Application Support/WhisperFogo`.
+**No macOS** ele é um aplicativo em `~/Applications`, na barra de menus e no Dock.
+O aplicativo é só o interpretador, com o nome e o ícone do Whisper Fogo, e é a ele
+que o macOS concede microfone e acessibilidade. O código, as bibliotecas, o modelo e
+os seus dados ficam em `~/Library/Application Support/WhisperFogo`, e é só essa
+pasta que a atualização troca: o aplicativo não muda, e as permissões continuam
+valendo.
 
 ---
 
@@ -460,7 +470,9 @@ fica na memória até você passar 10 minutos sem falar.
 Nada na tela nem no uso: histórico, Dicionário, teclas e grafias aprendidas ficam
 como estão. Depois de atualizar pelo menu do ícone, o programa baixa sozinho o
 motor novo e o modelo, em segundo plano, logo que abre. Se você ditar antes de o
-download terminar, essa primeira transcrição espera por ele.
+download terminar, essa primeira transcrição espera por ele. No Mac, quem vem da 1.4
+instala uma última vez pelo botão de download e autoriza microfone e acessibilidade
+de novo; daí em diante, a atualização é pelo menu e as permissões ficam.
 
 **Ele funciona em inglês?**
 O reconhecedor entende dezenas de idiomas, mas tudo aqui é afinado para português:
@@ -478,7 +490,7 @@ Issue e pull request são bem-vindos. O que mais ajuda:
 
 1. **Casos em que a transcrição erra feio** em português, com o áudio se possível.
 2. **Palavras que o aprendizado deveria ou não deveria ter pegado.**
-3. **Relatos do macOS**, que está em beta.
+3. **Relatos de Macs e de versões do macOS que não testamos**, principalmente Intel.
 4. **Medições em placas que não testamos**, principalmente AMD e Intel Arc: o
    tempo de uma fala e o nome da placa.
 
