@@ -29,9 +29,14 @@ BASE = Path(__file__).parent
 sys.path.insert(0, str(BASE))
 from caminhos import DADOS
 
-# Interpretador que abre as janelas auxiliares em processo próprio: no Windows a
-# variante sem console, no macOS o mesmo que já está executando este programa.
-PYTHON_JANELA = Path(sys.executable) if MAC else BASE / ".venv" / "Scripts" / "pythonw.exe"
+# Interpretador que abre as janelas auxiliares em processo próprio: no Windows o
+# Whisper Fogo.exe (sem console, com nome e ícone do programa), no macOS o mesmo
+# que já está executando este programa.
+if MAC:
+    PYTHON_JANELA = Path(sys.executable)
+else:
+    import executavel
+    PYTHON_JANELA = executavel.garantir()
 
 
 def beep(frequencia, ms):
@@ -526,8 +531,7 @@ def reiniciar(app):
         return
     if _mutex:
         kernel32.CloseHandle(_mutex)
-    pythonw = BASE / ".venv" / "Scripts" / "pythonw.exe"
-    subprocess.Popen([str(pythonw), str(BASE / "voz.py")], cwd=str(BASE),
+    subprocess.Popen([str(PYTHON_JANELA), str(BASE / "voz.py")], cwd=str(BASE),
                      creationflags=0x00000008 | 0x00000200)   # DETACHED_PROCESS | NEW_PROCESS_GROUP
     app.tray.stop()
 
@@ -536,12 +540,14 @@ def iniciar_com_o_sistema():
     """O Whisper Fogo abre junto com o Windows, sempre. A entrada é refeita a
     cada abertura, então mudar a pasta do programa não quebra o início
     automático. Quem desligar pelo Gerenciador de Tarefas continua desligado:
-    essa escolha o Windows guarda em outro lugar e não é tocada aqui. No macOS
-    quem cuida disso é o agente que o instalador registra."""
+    essa escolha o Windows guarda em outro lugar e não é tocada aqui. A entrada
+    aponta para o Whisper Fogo.exe, e é dele que o Gerenciador de Tarefas tira o
+    nome e o ícone. No macOS, ver iniciar_com_o_mac."""
     if MAC:
+        iniciar_com_o_mac()
         return
     import winreg
-    pythonw = BASE / ".venv" / "Scripts" / "pythonw.exe"
+    executavel.atualizar_atalhos()
     try:
         # CreateKeyEx abre a chave e a cria quando ainda não existe, que é o caso
         # de uma conta nova sem nenhum programa iniciando com o sistema.
@@ -549,9 +555,37 @@ def iniciar_com_o_sistema():
                                 r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
                                 winreg.KEY_SET_VALUE) as chave:
             winreg.SetValueEx(chave, "Whisper Fogo", 0, winreg.REG_SZ,
-                              f'"{pythonw}" "{BASE / "voz.py"}"')
+                              f'"{PYTHON_JANELA}" "{BASE / "voz.py"}"')
     except OSError as e:
         print(f"[início automático não registrado] {e}", file=sys.stderr)
+
+
+def iniciar_com_o_mac():
+    """macOS 13 em diante: o Whisper Fogo entra em Ajustes > Geral > Itens de
+    Início, na lista "Abrir ao iniciar sessão", com o próprio nome e ícone, pelo
+    caminho oficial da Apple (SMAppService). Registra uma vez só: quem tirar o
+    item da lista continua sem ele. No macOS 11 e 12 o instalador põe o
+    programa na mesma lista pelo System Events.
+
+    O agente de inicialização das versões anteriores sai depois do registro,
+    senão o programa abriria duas vezes. Só o arquivo sai: o agente que abriu
+    esta execução continua de pé até o fim da sessão."""
+    marca = DADOS / "inicio_registrado"
+    if marca.exists():
+        return
+    try:
+        import objc
+        objc.loadBundle("ServiceManagement", {},
+                        bundle_path="/System/Library/Frameworks/ServiceManagement.framework")
+        servico = objc.lookUpClass("SMAppService").mainAppService()
+    except Exception:
+        return                              # macOS 12 ou anterior
+    ok, erro = servico.registerAndReturnError_(None)
+    if not ok:
+        print(f"[início com o Mac não registrado] {erro}", file=sys.stderr)
+        return
+    marca.touch()
+    (Path.home() / "Library" / "LaunchAgents" / "ai.whisperfogo.app.plist").unlink(missing_ok=True)
 
 
 def main():

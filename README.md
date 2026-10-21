@@ -204,7 +204,10 @@ Disponível no Windows. No macOS as teclas são as do sistema (`Fn`).
 ## Sempre pronto e sempre atualizado
 
 - **Abre junto com o sistema.** Ligou o computador, a chama está na bandeja.
-  Quem não quiser desliga pelo Gerenciador de Tarefas, e a escolha é respeitada.
+  O Whisper Fogo aparece com o próprio nome e ícone onde o sistema lista o que
+  abre junto: no Windows, em Gerenciador de Tarefas > Aplicativos de
+  inicialização; no macOS, em Ajustes > Geral > Itens de Início. Quem não quiser
+  desliga ali, e a escolha é respeitada.
 - **Avisa quando há versão nova.** A cada vez que abre, o programa confere a última
   versão publicada aqui. Se houver novidade, aparece um aviso e o item
   **Atualizar para a versão X** no menu do ícone. A atualização preserva o seu
@@ -400,8 +403,9 @@ Cada arquivo faz uma coisa:
 | `aviso.py` | O aviso de grafia aprendida, com desfazer |
 | `clip.py` | Área de transferência e colagem, por sistema |
 | `caminhos.py` | Onde ficam o código e os dados em cada sistema |
+| `executavel.py` | O `Whisper Fogo.exe` do Windows, com o nome e o ícone do programa |
 
-**Testes:** 140 asserts, rodando sem microfone e sem placa de vídeo, e sem tocar nos
+**Testes:** 152 asserts, rodando sem microfone e sem placa de vídeo, e sem tocar nos
 seus dados:
 
 ```bash
@@ -415,6 +419,7 @@ python atualizacao.py      # comparação de versões e troca do código
 python motor.py            # escolha da placa, download conferido e montagem do texto
 python historico.py --teste
 python teste_corte.py      # gravação longa, corte de segurança e cor do ícone
+python executavel.py --teste   # Windows: nome, editora e ícone do Whisper Fogo.exe
 ```
 
 ---

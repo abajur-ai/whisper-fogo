@@ -213,7 +213,10 @@ Available on Windows. On macOS the keys are the system's (`Fn`).
 ## Always ready, always up to date
 
 - **Starts with the system.** Turn on the computer and the flame is in the tray.
-  If you don't want that, turn it off in Task Manager, and the choice is respected.
+  Whisper Fogo shows up with its own name and icon where the system lists what
+  opens at startup: on Windows, in Task Manager > Startup apps; on macOS, in
+  System Settings > General > Login Items. If you don't want that, turn it off
+  there, and the choice is respected.
 - **Tells you when there is a new version.** Every time it opens, the app checks the
   latest version published here. If there is something new, a notice appears along
   with the **Atualizar para a versão X** ("Update to version X") item in the icon
@@ -411,8 +414,9 @@ down on its own. Each file does one thing:
 | `aviso.py` | The learned spelling notice, with undo |
 | `clip.py` | Clipboard and pasting, per system |
 | `caminhos.py` | Where the code and the data live on each system |
+| `executavel.py` | The Windows `Whisper Fogo.exe`, with the app's name and icon |
 
-**Tests:** 140 asserts, running without a microphone or a graphics card, and without
+**Tests:** 152 asserts, running without a microphone or a graphics card, and without
 touching your data:
 
 ```bash
@@ -426,6 +430,7 @@ python atualizacao.py      # version comparison and code swap
 python motor.py            # card choice, verified download and text assembly
 python historico.py --teste
 python teste_corte.py      # long recording, safety cutoff and icon color
+python executavel.py --teste   # Windows: name, publisher and icon of Whisper Fogo.exe
 ```
 
 ---

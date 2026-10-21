@@ -142,12 +142,36 @@ def observar(colado, ao_terminar, parar_agora, leitor=None):
     para qualquer campo da máquina, e o que não casar com a âncora do ditado é
     descartado na hora, sem passar por lugar nenhum.
     """
+    if leitor is None and not MAC:
+        # O UI Automation é COM, e o COM se liga por thread: cada observação roda
+        # numa thread nova e precisa ligar o dela. O comtypes só liga sozinho a
+        # thread que o importa primeiro.
+        import comtypes
+        comtypes.CoInitializeEx(comtypes.COINIT_APARTMENTTHREADED)
+        try:
+            campo = Campo()
+        except Exception as e:
+            print(f"[observador não subiu] {e}", file=sys.stderr)
+            comtypes.CoUninitialize()
+            return
+        try:
+            _observar(colado, ao_terminar, parar_agora, campo.ler_focado)
+        finally:
+            del campo                  # solta o UI Automation antes de desligar o COM
+            import gc
+            gc.collect()
+            comtypes.CoUninitialize()
+        return
     if leitor is None:
         try:
-            leitor = (CampoMac() if MAC else Campo()).ler_focado
+            leitor = CampoMac().ler_focado
         except Exception as e:
             print(f"[observador não subiu] {e}", file=sys.stderr)
             return
+    _observar(colado, ao_terminar, parar_agora, leitor)
+
+
+def _observar(colado, ao_terminar, parar_agora, leitor):
     inicio = time.time()
     ultimo = None
     motivo = "janela_de_60s"
@@ -226,7 +250,24 @@ def _autoteste():
     parar3.set()
     t3.join(timeout=5)
     assert pego3 == {}, pego3
-    print("observador: 8/8 ok")
+
+    # Windows: o UI Automation sobe em cada thread nova, como em ditados
+    # seguidos. Só conta as leituras: o conteúdo do campo não passa por aqui.
+    if not MAC:
+        import io
+        erros, erros_antes = io.StringIO(), sys.stderr
+        sys.stderr = erros
+        try:
+            for _ in range(3):
+                parar4 = threading.Event()
+                t4 = observar_em_thread(colado, lambda f, m: None, parar4)
+                time.sleep(1.5)
+                parar4.set()
+                t4.join(timeout=5)
+        finally:
+            sys.stderr = erros_antes
+        assert "não subiu" not in erros.getvalue(), erros.getvalue()
+    print("observador: 9/9 ok")
 
 
 if __name__ == "__main__":

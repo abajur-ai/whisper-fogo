@@ -39,7 +39,11 @@ TAXA = 16000
 PASTA = DADOS / "motor"
 VERSAO = "motor-whispercpp-1.9.5-r2"
 SERVIDOR_DIR = PASTA / VERSAO
-SERVIDOR = SERVIDOR_DIR / ("whisper-server" if MAC else "whisper-server.exe")
+# O servidor aparece como Whisper Fogo, igual ao programa. No Mac o Monitor de
+# Atividade mostra o processo pelo nome do arquivo; no Windows o nome vem de
+# dentro do executável (executavel.carimbar_motor).
+SERVIDOR = SERVIDOR_DIR / ("Whisper Fogo" if MAC else "whisper-server.exe")
+SERVIDOR_ORIGINAL = "whisper-server"
 VAD = SERVIDOR_DIR / "ggml-silero-v6.2.0.bin"
 
 if not MAC:
@@ -122,6 +126,8 @@ def preparar(baixar=_baixar, cpu=None):
     volta na hora."""
     with _preparo:
         PASTA.mkdir(parents=True, exist_ok=True)
+        if MAC and (SERVIDOR_DIR / SERVIDOR_ORIGINAL).exists():
+            os.replace(SERVIDOR_DIR / SERVIDOR_ORIGINAL, SERVIDOR)
         if not SERVIDOR.exists():
             zip_ = PASTA / PACOTE
             _baixar_conferido(PACOTE_URL, zip_, PACOTE_SHA.get(PACOTE), baixar)
@@ -130,6 +136,8 @@ def preparar(baixar=_baixar, cpu=None):
                 with zipfile.ZipFile(zip_) as z:
                     z.extractall(aberto)
                 if MAC:
+                    if (aberto / SERVIDOR_ORIGINAL).exists():
+                        os.replace(aberto / SERVIDOR_ORIGINAL, aberto / SERVIDOR.name)
                     os.chmod(aberto / SERVIDOR.name, 0o755)
                 shutil.rmtree(SERVIDOR_DIR, ignore_errors=True)
                 os.replace(aberto, SERVIDOR_DIR)
@@ -143,6 +151,9 @@ def preparar(baixar=_baixar, cpu=None):
             for marca in PASTA.glob("aquecido-*"):
                 if marca.name != f"aquecido-{VERSAO}":
                     marca.unlink(missing_ok=True)
+        if not MAC and SERVIDOR.stat().st_size > 1024:     # o autoteste usa um servidor de mentira
+            import executavel
+            executavel.carimbar_motor(SERVIDOR)
         if cpu is None:
             cpu = placa() is False
         if cpu and not MODELO_CPU.exists():

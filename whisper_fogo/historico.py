@@ -49,7 +49,11 @@ def programa_rodando():
 def ligar_programa():
     """Painel não existe sem o programa: quem abre a janela pelo atalho do
     teclado sobe o ditado junto. O voz.py continua vivo se a janela fechar."""
-    python = Path(sys.executable) if MAC else CODIGO / ".venv" / "Scripts" / "pythonw.exe"
+    if MAC:
+        python = Path(sys.executable)
+    else:
+        import executavel
+        python = executavel.garantir()
     subprocess.Popen([str(python), str(CODIGO / "voz.py")], cwd=str(CODIGO))
 
 

@@ -253,23 +253,23 @@ fi
 # ------------------------------------------------------------------ na conta
 titulo "Deixando o Whisper Fogo pronto"
 
-# Abre junto com o Mac, como qualquer programa que vive na barra de menus.
-mkdir -p "$HOME/Library/LaunchAgents"
+# Abre junto com o Mac pelo caminho oficial: a lista "Abrir ao iniciar sessão"
+# dos Ajustes, com o nome e o ícone do Whisper Fogo, de onde qualquer um tira o
+# programa se quiser. No macOS 13 em diante o próprio programa se registra ao
+# abrir (SMAppService); no 11 e no 12, o item entra pelo System Events. O agente
+# de inicialização das versões anteriores sai, senão o programa abriria duas vezes.
 AGENTE="$HOME/Library/LaunchAgents/ai.whisperfogo.app.plist"
-cat > "$AGENTE" <<AGENT
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>ai.whisperfogo.app</string>
-  <key>ProgramArguments</key>
-  <array><string>$APP/Contents/MacOS/whisper-fogo</string></array>
-  <key>RunAtLoad</key><true/>
-  <key>ProcessType</key><string>Interactive</string>
-</dict>
-</plist>
-AGENT
-ok "Abre junto com o Mac"
+if [[ -f "$AGENTE" ]]; then
+  launchctl bootout "gui/$(id -u)/ai.whisperfogo.app" 2>/dev/null || true
+  rm -f "$AGENTE"
+fi
+if (( $(sw_vers -productVersion | cut -d. -f1) >= 13 )); then
+  ok "Abre junto com o Mac (Ajustes > Geral > Itens de Início)"
+elif osascript -e "tell application \"System Events\" to if not (exists login item \"Whisper Fogo\") then make login item at end with properties {path:\"$APP\", hidden:false}" >/dev/null 2>&1; then
+  ok "Abre junto com o Mac (Preferências do Sistema > Usuários e Grupos > Itens de Início)"
+else
+  aviso "Não consegui pôr o Whisper Fogo nos Itens de Início. Para abrir junto com o Mac, adicione o aplicativo lá."
+fi
 
 # Ícone fixo no Dock, para achar o programa junto com os outros. O Dock guarda
 # o endereço com os espaços escritos como %20, e é por esse formato que a

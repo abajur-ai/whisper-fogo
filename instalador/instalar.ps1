@@ -116,6 +116,11 @@ if (Test-Path (Join-Path $origem "whisper_fogo\voz.py")) {
     $origem = (Get-ChildItem $tmp -Directory | Where-Object { Test-Path (Join-Path $_.FullName "whisper_fogo\voz.py") } | Select-Object -First 1).FullName
     if ($versao) { Ok "Programa baixado: versão $versao" } else { Ok "Programa baixado" }
 }
+# Programa aberto segura os próprios arquivos: fecha antes de trocar, pelo
+# processo que roda desta pasta, e nunca por nome.
+Get-CimInstance Win32_Process | Where-Object {
+    $_.CommandLine -and $_.CommandLine.Contains("$DESTINO\") -and $_.Name -match '^(pythonw?|Whisper Fogo|whisper-server)\.exe$'
+} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Copy-Item (Join-Path $origem "whisper_fogo\*") $DESTINO -Recurse -Force
 # A revisão de texto por modelo local saiu do programa na versão 1.4.
 foreach ($velho in "llama", "modelos", "limpar.py") {
@@ -151,6 +156,15 @@ $pacotes = @("sounddevice", "numpy", "pystray", "pillow", "comtypes")
 & $uv pip install --python "$DESTINO\.venv\Scripts\python.exe" @pacotes
 Ok "Bibliotecas instaladas"
 
+# O programa roda pelo Whisper Fogo.exe: é dele que o Windows tira o nome e o
+# ícone no Gerenciador de Tarefas, nos aplicativos de inicialização e nas
+# Configurações. Sem ele, o programa apareceria como "Python".
+Remove-Item "$DESTINO\.venv\Scripts\Whisper Fogo.exe" -Force -ErrorAction SilentlyContinue
+& "$DESTINO\.venv\Scripts\python.exe" (Join-Path $DESTINO "executavel.py") | Out-Null
+$PROGRAMA = "$DESTINO\.venv\Scripts\Whisper Fogo.exe"
+if (Test-Path $PROGRAMA) { Ok "Whisper Fogo.exe pronto" }
+else { $PROGRAMA = "$DESTINO\.venv\Scripts\pythonw.exe"; Aviso "Não consegui criar o Whisper Fogo.exe; o programa abre pelo Python" }
+
 # ------------------------------------------------------------------- modelos
 Titulo "Baixando o motor e o modelo de transcrição"
 Write-Host "  Motor whisper.cpp e modelo large-v3-turbo: 1,6 GB com placa de vídeo, 0,9 GB sem. Só acontece uma vez."
@@ -185,7 +199,7 @@ foreach ($pasta in @($pastaDesktop, $pastaMenu)) {
         if (-not (Test-Path $pasta)) { New-Item -ItemType Directory -Force -Path $pasta | Out-Null }
         Remove-Item $destinoLnk -Force -ErrorAction SilentlyContinue
         $l = $ws.CreateShortcut($destinoLnk)
-        $l.TargetPath = "$DESTINO\.venv\Scripts\pythonw.exe"
+        $l.TargetPath = $PROGRAMA
         $l.Arguments = "`"$DESTINO\voz.py`""
         $l.WorkingDirectory = $DESTINO
         $l.IconLocation = "$DESTINO\fogo.ico,0"
@@ -204,7 +218,7 @@ if ($feitos.Count -eq 2)    { Ok "Atalho no Desktop e no menu Iniciar" }
 elseif ($feitos.Count -eq 1) { Ok "Atalho criado em $(Split-Path $feitos[0] -Parent)" }
 else {
     Aviso "Não consegui criar atalho nenhum. Para abrir o programa, rode:"
-    Aviso "$DESTINO\.venv\Scripts\pythonw.exe `"$DESTINO\voz.py`""
+    Aviso "`"$PROGRAMA`" `"$DESTINO\voz.py`""
 }
 
 # --------------------------------------------------------------------- testes
@@ -215,6 +229,8 @@ foreach ($t in @("corrigir.py", "observador.py", "tema.py", "atalhos.py", "grafi
 }
 # o historico.py abre a janela quando chamado sem argumento, por isso o --teste
 $saida = & $py (Join-Path $DESTINO "historico.py") --teste 2>&1 | Select-Object -Last 1
+Write-Host "  $saida"
+$saida = & $py (Join-Path $DESTINO "executavel.py") --teste 2>&1 | Select-Object -Last 1
 Write-Host "  $saida"
 Pop-Location
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
@@ -237,4 +253,4 @@ Write-Host @"
 "@ -ForegroundColor Green
 
 $abrir = (Read-Host "  Abrir o Whisper Fogo agora? (S/n)") -notmatch "^[nN]"
-if ($abrir) { Start-Process -FilePath "$DESTINO\.venv\Scripts\pythonw.exe" -ArgumentList "`"$DESTINO\voz.py`"" -WindowStyle Hidden }
+if ($abrir) { Start-Process -FilePath $PROGRAMA -ArgumentList "`"$DESTINO\voz.py`"" -WindowStyle Hidden }
