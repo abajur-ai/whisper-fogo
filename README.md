@@ -1,5 +1,7 @@
 <div align="center">
 
+**Português** · [Read in English](README.en.md)
+
 <img src="docs/img/banner.png" alt="Whisper Fogo" width="820">
 
 **Transcrição de voz grátis, que roda inteira na sua máquina e é especialista em língua portuguesa.**
@@ -20,6 +22,7 @@ Na primeira abertura, os dois sistemas mostram um aviso de segurança, porque o 
 ![Grátis](https://img.shields.io/badge/preço-grátis-FB5B04)
 ![Roda offline](https://img.shields.io/badge/nuvem-nenhuma-FB5B04)
 ![Português](https://img.shields.io/badge/especialista%20em-língua%20portuguesa-FB5B04)
+![Qualquer placa de vídeo](https://img.shields.io/badge/placa%20de%20vídeo-NVIDIA%20%7C%20AMD%20%7C%20Intel%20%7C%20Apple-FB5B04)
 ![Licença MIT](https://img.shields.io/badge/licença-MIT-555555)
 
 Um produto da [Abajur](https://abajur.ai).
@@ -42,6 +45,49 @@ palavras foram afinados para quem fala e escreve em português.
 E ele é **grátis** e roda **inteiro no seu computador**. Nenhum áudio, nenhuma
 transcrição e nenhuma palavra do seu dicionário saem da sua máquina. Não há conta,
 não há servidor para cair, não há limite de minutos.
+
+---
+
+## Novo na versão 1.5: rápido em qualquer computador
+
+Até a versão 1.4, o Whisper Fogo só era rápido com placa de vídeo **NVIDIA**. O
+motor de transcrição daquela época, o
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper), roda sobre o
+[CTranslate2](https://github.com/OpenNMT/CTranslate2), que só sabe usar duas coisas:
+o processador e o CUDA, que é exclusivo da NVIDIA. Placa AMD, placa Intel e o chip
+dos Macs ficavam de lado, e a transcrição caía para o processador. Na prática, quem
+não tinha NVIDIA esperava quase meio minuto para ver uma frase de 10 segundos virar
+texto.
+
+**A partir da 1.5, o motor é o [whisper.cpp](https://github.com/ggml-org/whisper.cpp)**,
+a mesma base dos programas de transcrição abertos mais usados (Handy, Buzz,
+OpenWhispr, Vibe, VoiceInk). Ele conversa com a placa de vídeo pelo **Vulkan** no
+Windows, que NVIDIA, AMD e Intel suportam, e pelo **Metal** no Mac. O modelo
+continua o mesmo, o Whisper `large-v3-turbo`, e o resto do programa não mudou.
+
+| Computador | Antes (1.4) | Agora (1.5) |
+|---|---|---|
+| Notebook com NVIDIA | rápido | rápido do mesmo jeito |
+| Notebook com placa integrada Intel ou AMD | processador, devagar | placa de vídeo, rápido |
+| Placa dedicada AMD ou Intel Arc | processador, devagar | placa de vídeo, rápido |
+| Mac com Apple Silicon | processador, devagar | placa do chip, pelo Metal |
+| Sem placa de vídeo | processador | processador, mais rápido que antes |
+
+**Medido em 20/10/2026 num mesmo notebook** (Intel Core i7-13700H, Intel Iris Xe
+integrada e RTX 4050 de 6 GB), com falas reais em português:
+
+| Onde a transcrição roda | Fala de 11,5 s | Fala de 11 min |
+|---|---|---|
+| RTX 4050, motor antigo (CUDA) | 0,9 s | 37 s |
+| RTX 4050, motor novo (Vulkan) | 1,0 a 1,3 s | 41 a 43 s |
+| Intel Iris Xe integrada, motor antigo | 28 a 33 s (processador) | não medido |
+| Intel Iris Xe integrada, motor novo | 5,2 s | 145 s |
+| Só o processador, motor antigo | 28 a 33 s | não medido |
+| Só o processador, motor novo | 19 a 21 s | não medido |
+
+Com NVIDIA a diferença é de décimos de segundo numa fala curta. Na placa integrada,
+que é o que a maioria dos notebooks tem, a mesma fala sai de cinco a seis vezes mais
+rápido do que saía.
 
 ---
 
@@ -175,8 +221,8 @@ No macOS, a atualização abre a página da versão nova para baixar.
 
 Clique no botão do seu sistema, o arquivo baixa e você dá dois cliques nele. O
 instalador confere se a sua máquina aguenta, instala tudo numa pasta isolada,
-baixa o modelo, cria os atalhos e abre o programa. Não mexe em nada fora da pasta
-dele.
+baixa o motor e o modelo, prepara a placa de vídeo, cria os atalhos e abre o
+programa. Não mexe em nada fora da pasta dele.
 
 <div align="center">
 
@@ -231,57 +277,62 @@ locais em vez de baixar de novo.
 
 ### O que a sua máquina precisa ter
 
-Números **medidos**, não estimados, numa RTX 4050 de notebook e num MacBook Air M1.
+Velocidades **medidas** em 20/10/2026 num notebook com Intel Core i7-13700H, Intel
+Iris Xe integrada e RTX 4050 de 6 GB, com 11 minutos de fala real em português.
 
 **No Windows**
 
 |  | Mínimo | Recomendado | Ideal |
 |---|---|---|---|
-| **Placa de vídeo** | nenhuma, roda na CPU | NVIDIA com 4 GB de VRAM | NVIDIA com 6 GB ou mais |
-| **VRAM livre** | zero | 2,5 GB | 2,5 GB |
+| **Placa de vídeo** | nenhuma, roda no processador | integrada recente (Intel Iris Xe, AMD Radeon) | dedicada NVIDIA, AMD ou Intel Arc com 4 GB ou mais |
+| **Memória da placa livre** | zero | usa a memória do sistema | 2 GB |
 | **Memória RAM** | 4 GB | 8 GB | 16 GB ou mais |
-| **Disco** | 4 GB | 4 GB | 4 GB |
-| **Velocidade** | ~1,4x o tempo real | ~15x | ~29x |
+| **Disco** | 1,1 GB | 1,8 GB | 1,8 GB |
+| **Velocidade** | ~0,6x o tempo real | ~4,6x | ~16x |
 
 **No macOS (beta)**
 
 |  | Mínimo | Recomendado | Ideal |
 |---|---|---|---|
-| **Chip** | Intel Core i5 | Apple Silicon M1 ou M2 | Apple Silicon Pro, Max ou M3 em diante |
-| **Sistema** | macOS 11 | macOS 13 | macOS 14 ou mais novo |
+| **Chip** | Intel Core i5 (só processador) | Apple Silicon M1 ou M2 | Apple Silicon Pro, Max ou M3 em diante |
+| **Sistema** | macOS 12 | macOS 13 | macOS 14 ou mais novo |
 | **Memória RAM** | 8 GB | 8 GB | 16 GB ou mais |
-| **Disco** | 4 GB | 4 GB | 4 GB |
-| **Velocidade** | ~1,2x o tempo real | ~2x | ~4x |
+| **Disco** | 1,1 GB | 1,8 GB | 1,8 GB |
 
-**Traduzindo a velocidade:** é quantas vezes mais rápido que o tempo real. No
-Windows, 1 minuto de fala vira texto em uns 45 segundos no mínimo e em 2 segundos
-no ideal. No macOS, o mesmo minuto sai em uns 50 segundos no mínimo e em 15
-segundos no ideal.
+No Mac a velocidade da versão 1.5 ainda não foi medida. No Apple Silicon a
+transcrição passa a usar a placa do chip pelo Metal, que é o caminho dos outros
+programas de transcrição para Mac.
 
-**Quanto ocupa da placa de vídeo:** 2,2 GB na precisão padrão (`float16`) e 1,2 GB
-no modo econômico (`int8`). Depois de 10 minutos sem uso, o modelo sai da memória
-da placa sozinho.
+**Traduzindo a velocidade:** é quantas vezes mais rápido que o tempo real. Com uma
+placa dedicada, 1 minuto de fala vira texto em uns 4 segundos. Numa placa
+integrada, em uns 13 segundos. Só no processador, em uns 1 minuto e 40 segundos.
+
+**Quanto ocupa da placa de vídeo:** cerca de 1,9 GB, o modelo de 1,6 GB mais o
+espaço de cálculo. Depois de 10 minutos sem uso, o modelo sai da memória da placa
+sozinho.
 
 <details>
-<summary><b>Por que precisa ser NVIDIA, e o que acontece com AMD, Intel ou Mac</b></summary>
+<summary><b>Como o motor usa a sua placa de vídeo</b></summary>
 
 <br>
 
-O motor de transcrição é o [CTranslate2](https://github.com/OpenNMT/CTranslate2),
-que aceita dois tipos de dispositivo: **CPU e CUDA**. Não há suporte a ROCm (AMD),
-Metal (Apple), Intel Arc, Vulkan ou OpenCL:
-
-```python
->>> import ctranslate2
->>> ctranslate2.get_supported_compute_types("cuda")
-{'float16', 'int8', 'bfloat16', 'float32', ...}
->>> ctranslate2.get_supported_compute_types("rocm")
-ValueError: unsupported device rocm
-```
-
-Se a sua placa não é NVIDIA, o programa usa a CPU sozinho. **Ele funciona**, na
-velocidade da coluna "mínimo". O instalador mede a sua máquina e avisa antes de
-baixar qualquer coisa.
+- **Qual placa.** No Windows, o motor pergunta ao Vulkan quais placas existem. Num
+  notebook com placa integrada e placa dedicada, a dedicada é a escolhida, mesmo
+  quando o Windows lista a integrada primeiro. Só com a integrada, é ela que
+  trabalha. No Mac com Apple Silicon, a placa é a do chip, pelo Metal.
+- **Sem placa que sirva.** O Vulkan vem no driver de vídeo da NVIDIA, da AMD e da
+  Intel. Sem ele, ou se a placa falhar ao carregar o modelo, a transcrição segue no
+  processador, sozinha, sem você fazer nada.
+- **Duas precisões do mesmo modelo.** Na placa, o `large-v3-turbo` roda na precisão
+  cheia (1,6 GB). No processador, roda em 8 bits (0,9 GB), que é uma vez e meia
+  mais rápido ali, com o mesmo texto. O instalador baixa só a que a sua máquina usa.
+- **A primeira vez numa placa.** O driver de vídeo compila os programas do motor
+  na primeira transcrição, e ela levaria dezenas de segundos. Por isso o instalador
+  faz uma transcrição de teste no fim, e o driver guarda o resultado. A sua
+  primeira fala de verdade já sai no tempo normal.
+- **Driver de vídeo atualizado com o programa aberto.** Se o motor cair, ele sobe
+  de novo sozinho e repete a transcrição. Se ainda assim falhar, o áudio fica
+  guardado em disco.
 
 </details>
 
@@ -291,19 +342,25 @@ baixar qualquer coisa.
 
 | Componente | Tamanho | Para quê |
 |---|---|---|
-| Whisper `large-v3-turbo` | 1,6 GB | Transcrever a fala |
-| Python isolado e bibliotecas | ~2 GB | O programa em si |
+| Whisper `large-v3-turbo` | 1,6 GB com placa de vídeo, 0,9 GB sem | Transcrever a fala |
+| Motor [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | 58 MB no Windows, 9 MB no Mac | Rodar o modelo na placa ou no processador |
+| Python isolado e bibliotecas | ~120 MB | O programa em si |
 
-**Velocidade medida** numa RTX 4050 de notebook: 42 minutos de áudio transcritos em
-86 segundos, 29 vezes mais rápido que o tempo real. Falas curtas do dia a dia saem
-em 2 a 6 segundos.
+O motor é compilado a partir do código do whisper.cpp pelo próprio GitHub deste
+repositório, e o programa confere o SHA-256 de cada arquivo baixado antes de usar.
+
+**Velocidade medida** numa RTX 4050 de notebook: 11 minutos de fala transcritos em
+42 segundos, 16 vezes mais rápido que o tempo real. Falas curtas do dia a dia saem
+em 1 a 3 segundos.
 
 ---
 
 ## Privacidade e desempenho, em números
 
-- **0 bytes** enviados durante o uso. A internet só entra para baixar na instalação e
-  para conferir se há versão nova.
+- **0 bytes** enviados durante o uso. A internet só entra para baixar o programa, o
+  motor e o modelo, uma vez, e para conferir se há versão nova.
+- **127.0.0.1** é o único endereço em que o motor escuta: ele roda num processo ao
+  lado do programa e não aceita conexão de fora da sua máquina.
 - **0 conta** para criar. Não há login, telemetria nem servidor.
 - **0 arquivo de áudio** guardado: a gravação vive na memória só até virar texto.
 - **60 segundos** é a janela em que o programa observa o campo para aprender a sua
@@ -315,12 +372,14 @@ em 2 a 6 segundos.
 
 ## Como o programa é feito
 
-Python puro, sem framework, sem servidor local, sem Electron. Cada arquivo faz uma
-coisa:
+Python puro, sem framework, sem Electron. O reconhecimento roda no `whisper-server`
+do whisper.cpp, num processo ao lado, que o programa sobe, usa e encerra sozinho.
+Cada arquivo faz uma coisa:
 
 | Arquivo | Responsabilidade |
 |---|---|
 | `voz.py` | O programa: ícone, gravação, transcrição, colagem, início com o sistema |
+| `motor.py` | O motor: baixa, escolhe a placa, sobe o servidor e transcreve |
 | `teclado.py` | O atalho global, com a máquina de estados de segurar e de mãos livres |
 | `atalhos.py` | As combinações de teclas, o padrão e o nome de cada tecla |
 | `historico.py` | O registro em disco e o painel administrativo |
@@ -335,7 +394,7 @@ coisa:
 | `clip.py` | Área de transferência e colagem, por sistema |
 | `caminhos.py` | Onde ficam o código e os dados em cada sistema |
 
-**Testes:** 123 asserts, rodando sem microfone e sem placa de vídeo, e sem tocar nos
+**Testes:** 140 asserts, rodando sem microfone e sem placa de vídeo, e sem tocar nos
 seus dados:
 
 ```bash
@@ -346,6 +405,7 @@ python tema.py             # corte de títulos e barra de rolagem
 python grafias.py          # regras do Dicionário
 python atalhos.py          # combinações de teclas
 python atualizacao.py      # comparação de versões e troca do código
+python motor.py            # escolha da placa, download conferido e montagem do texto
 python historico.py --teste
 python teste_corte.py      # gravação longa, corte de segurança e cor do ícone
 ```
@@ -359,7 +419,7 @@ python teste_corte.py      # gravação longa, corte de segurança e cor do íco
 | Ditado com atalho global | `Ctrl` + `Shift` | `Fn` |
 | Teclas regraváveis | sim | não, usa `Fn` |
 | Colagem no cursor | sim | sim |
-| Transcrição | GPU NVIDIA ou CPU | CPU |
+| Transcrição | placa NVIDIA, AMD ou Intel (Vulkan), ou processador | placa do Apple Silicon (Metal); Mac Intel no processador |
 | Painel administrativo e Dicionário | sim | sim |
 | Aprender pela sua correção | UI Automation | API de Acessibilidade |
 | Abre com o sistema | sim | sim |
@@ -387,13 +447,20 @@ e o programa continua funcionando igual.
 **Funciona em qualquer programa?**
 Em qualquer campo de texto que aceite colar.
 
-**Precisa de placa de vídeo cara?**
-Não. Ele foi construído numa RTX 4050 de notebook, que é placa de entrada. Sem
-placa nenhuma, roda na CPU, mais devagar.
+**Precisa de placa de vídeo cara? Precisa ser NVIDIA?**
+Não e não. Desde a versão 1.5, qualquer placa com Vulkan serve: NVIDIA, AMD ou
+Intel, dedicada ou a integrada do notebook. No Mac com Apple Silicon, a do chip.
+Sem placa nenhuma, roda no processador, mais devagar.
 
 **Por que a primeira transcrição do dia demora mais?**
 O modelo carrega na primeira vez que você fala, o que leva alguns segundos. Depois
 fica na memória até você passar 10 minutos sem falar.
+
+**Eu já usava a versão 1.4. O que muda para mim?**
+Nada na tela nem no uso: histórico, Dicionário, teclas e grafias aprendidas ficam
+como estão. Depois de atualizar pelo menu do ícone, o programa baixa sozinho o
+motor novo e o modelo, em segundo plano, logo que abre. Se você ditar antes de o
+download terminar, essa primeira transcrição espera por ele.
 
 **Ele funciona em inglês?**
 O reconhecedor entende dezenas de idiomas, mas tudo aqui é afinado para português:
@@ -412,6 +479,8 @@ Issue e pull request são bem-vindos. O que mais ajuda:
 1. **Casos em que a transcrição erra feio** em português, com o áudio se possível.
 2. **Palavras que o aprendizado deveria ou não deveria ter pegado.**
 3. **Relatos do macOS**, que está em beta.
+4. **Medições em placas que não testamos**, principalmente AMD e Intel Arc: o
+   tempo de uma fala e o nome da placa.
 
 O código é escrito e comentado em português, explicando o porquê das decisões.
 
@@ -419,9 +488,10 @@ O código é escrito e comentado em português, explicando o porquê das decisõ
 
 ## Créditos
 
-Construído sobre [faster-whisper](https://github.com/SYSTRAN/faster-whisper),
-[CTranslate2](https://github.com/OpenNMT/CTranslate2) e o modelo
-[Whisper](https://github.com/openai/whisper). A lista de palavras comuns do
+Construído sobre o [whisper.cpp](https://github.com/ggml-org/whisper.cpp) e o
+modelo [Whisper](https://github.com/openai/whisper), com o detector de fala
+[Silero VAD](https://github.com/snakers4/silero-vad). Até a versão 1.4 o motor era o
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper). A lista de palavras comuns do
 português vem do [FrequencyWords](https://github.com/hermitdave/FrequencyWords).
 
 ---

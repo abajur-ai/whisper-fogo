@@ -14,9 +14,6 @@ on:
       tag:
         description: "Release que recebe os pacotes (vazio: só compila)"
         required: false
-  push:
-    branches: [motor-whispercpp]
-    paths: [.github/workflows/motor.yml]
 
 env:
   WHISPER_CPP: v1.9.5
