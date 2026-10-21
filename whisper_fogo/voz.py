@@ -604,6 +604,9 @@ def main():
         app.estado()
 
     app.tray.run(setup=preparar)
+    # No macOS o aplicativo termina por os._exit (ver sitecustomize.py), que não
+    # passa pelo atexit: o motor é encerrado aqui, ao sair pelo menu.
+    motor.encerrar_todos()
 
 
 if __name__ == "__main__":

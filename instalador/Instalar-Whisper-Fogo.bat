@@ -14,7 +14,14 @@ REM Quando vem de fora, o script é gravado em disco e executado de lá.
 set "INSTALADOR=%~dp0instalar.ps1"
 if not exist "%INSTALADOR%" (
     echo Baixando o instalador...
-    curl.exe -fsSL -o "%TEMP%\whisper-fogo-instalar.ps1" "https://raw.githubusercontent.com/abajur-ai/whisper-fogo/main/instalador/instalar.ps1"
+    REM O curl vem no Windows 10 a partir da versão 1803. Antes disso, o
+    REM PowerShell baixa, com TLS 1.2 ligado à mão.
+    where curl.exe >nul 2>nul
+    if errorlevel 1 (
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/abajur-ai/whisper-fogo/main/instalador/instalar.ps1' -OutFile '%TEMP%\whisper-fogo-instalar.ps1'"
+    ) else (
+        curl.exe -fsSL -o "%TEMP%\whisper-fogo-instalar.ps1" "https://raw.githubusercontent.com/abajur-ai/whisper-fogo/main/instalador/instalar.ps1"
+    )
     if errorlevel 1 (
         echo.
         echo Não consegui baixar o instalador. Confira a sua conexão com a internet.

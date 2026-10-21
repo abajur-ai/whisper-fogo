@@ -11,6 +11,9 @@
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false
 $ProgressPreference = "SilentlyContinue"
+# O GitHub só aceita TLS 1.2 ou mais novo, e o PowerShell 5.1 das primeiras
+# versões do Windows 10 não o liga sozinho.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 $env:PYTHONWARNINGS = "ignore"
 

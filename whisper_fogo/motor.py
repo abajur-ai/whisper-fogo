@@ -37,7 +37,7 @@ MAC = sys.platform == "darwin"
 TAXA = 16000
 
 PASTA = DADOS / "motor"
-VERSAO = "motor-whispercpp-1.9.5"
+VERSAO = "motor-whispercpp-1.9.5-r2"
 SERVIDOR_DIR = PASTA / VERSAO
 SERVIDOR = SERVIDOR_DIR / ("whisper-server" if MAC else "whisper-server.exe")
 VAD = SERVIDOR_DIR / "ggml-silero-v6.2.0.bin"
@@ -50,9 +50,9 @@ else:
     PACOTE = "motor-macos-x64.zip"
 PACOTE_URL = f"https://github.com/abajur-ai/whisper-fogo/releases/download/{VERSAO}/{PACOTE}"
 PACOTE_SHA = {
-    "motor-windows-x64.zip": "032e915bb83b67c31c379d3156c8368b959b26f2b6310d603d98742d879236b4",
-    "motor-macos-arm64.zip": "6c01d165b05ffba61cb6c7e0ad2f2069ff19a3e93967e70c9debb4d567089ec4",
-    "motor-macos-x64.zip": "1ea7772abc5e49ef7bdf3daf6ad18309fff82cf7488b145ad51711302ce90e85",
+    "motor-windows-x64.zip": "31c024bec75a61d48c34f3eff4f8f12df237a663968be1f91e1c8c1c6dbb2273",
+    "motor-macos-arm64.zip": "6a8a0b7073502d824c16fb079580b1231b60a0d20bc64dc831d665892aa969c8",
+    "motor-macos-x64.zip": "9d178c9f6d6daa053788be31116819e4b2fdfddf5449f34e886a9a13f68fe48b",
 }
 
 # O mesmo Whisper large-v3-turbo em duas precisões. Na placa, a cheia (f16), a
@@ -136,6 +136,13 @@ def preparar(baixar=_baixar, cpu=None):
             finally:
                 shutil.rmtree(aberto, ignore_errors=True)
                 zip_.unlink(missing_ok=True)
+            # o motor de uma versão anterior do programa não serve mais
+            for velho in PASTA.glob("motor-whispercpp-*"):
+                if velho.is_dir() and velho.name != VERSAO:
+                    shutil.rmtree(velho, ignore_errors=True)
+            for marca in PASTA.glob("aquecido-*"):
+                if marca.name != f"aquecido-{VERSAO}":
+                    marca.unlink(missing_ok=True)
         if cpu is None:
             cpu = placa() is False
         if cpu and not MODELO_CPU.exists():
@@ -436,8 +443,15 @@ class Motor:
 
 
 _vivos = set()
-# o servidor sai junto com o programa
-atexit.register(lambda: [m.encerrar() for m in list(_vivos)])
+
+
+def encerrar_todos():
+    """O servidor sai junto com o programa."""
+    for m in list(_vivos):
+        m.encerrar()
+
+
+atexit.register(encerrar_todos)
 
 
 def _autoteste():
@@ -478,6 +492,8 @@ def _autoteste():
         (fonte / "f16.bin").write_bytes(b"pesos" * 1000)
         (fonte / "q8.bin").write_bytes(b"oito" * 1000)
         PASTA = Path(pasta) / "motor"
+        (PASTA / "motor-whispercpp-0.0.1").mkdir(parents=True)       # motor de versão anterior
+        (PASTA / "aquecido-motor-whispercpp-0.0.1").touch()
         SERVIDOR_DIR = PASTA / VERSAO
         SERVIDOR, VAD = SERVIDOR_DIR / SERVIDOR.name, SERVIDOR_DIR / VAD.name
         MODELO, MODELO_CPU = PASTA / MODELO.name, PASTA / MODELO_CPU.name
@@ -497,6 +513,8 @@ def _autoteste():
             preparar(copia)
             assert SERVIDOR.read_text("utf-8") == "binário" and VAD.exists()
             assert pedidos == [PACOTE_URL, MODELO_URL], "com placa, só o modelo da placa"
+            assert not (PASTA / "motor-whispercpp-0.0.1").exists(), "o motor anterior sai"
+            assert not (PASTA / "aquecido-motor-whispercpp-0.0.1").exists()
             preparar(copia)
             assert len(pedidos) == 2, "com tudo no lugar, nada é baixado de novo"
             assert not list(PASTA.glob("*.parcial")) and not list(PASTA.glob("*.zip"))
