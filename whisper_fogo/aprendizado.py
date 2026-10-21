@@ -283,6 +283,19 @@ def desfazer(pares):
 
 
 def _autoteste():
+    """Roda num arquivo temporário: o aprendido.json de verdade nunca é tocado."""
+    import tempfile
+    global ARQUIVO
+    real = ARQUIVO
+    with tempfile.TemporaryDirectory() as pasta:
+        ARQUIVO = Path(pasta) / "aprendido.json"
+        try:
+            _casos()
+        finally:
+            ARQUIVO = real
+
+
+def _casos():
     global _stopwords
     _stopwords = {"para", "sessao", "sessão", "seção", "secao", "reunião", "reuniao",
                   "isso", "muito", "vivo", "claude", "casa", "ali", "aqui",
