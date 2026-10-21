@@ -55,9 +55,16 @@ PACOTE_SHA = {
     "motor-macos-x64.zip": "1ea7772abc5e49ef7bdf3daf6ad18309fff82cf7488b145ad51711302ce90e85",
 }
 
+# O mesmo Whisper large-v3-turbo em duas precisões. Na placa, a cheia (f16), a
+# mesma do float16 de antes. No processador, 8 bits, como o int8 de antes: 19 s
+# contra 30 s da cheia para 11,5 s de fala, com o mesmo texto.
+_HF = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
 MODELO = PASTA / "ggml-large-v3-turbo.bin"
-MODELO_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin"
+MODELO_URL = _HF + MODELO.name
 MODELO_SHA = "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69"
+MODELO_CPU = PASTA / "ggml-large-v3-turbo-q8_0.bin"
+MODELO_CPU_URL = _HF + MODELO_CPU.name
+MODELO_CPU_SHA = "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1"
 
 ESPERA_SUBIDA = 300       # segundos para o servidor carregar o modelo
 _preparo = threading.RLock()
@@ -109,8 +116,9 @@ def _baixar_conferido(url, destino, sha, baixar):
     os.replace(parcial, destino)
 
 
-def preparar(baixar=_baixar):
-    """Garante o servidor e o modelo na pasta de dados. Sem nada a baixar,
+def preparar(baixar=_baixar, cpu=None):
+    """Garante o servidor e o modelo que esta máquina usa: o da placa, ou o do
+    processador quando não há placa (ou quando `cpu` pede). Sem nada a baixar,
     volta na hora."""
     with _preparo:
         PASTA.mkdir(parents=True, exist_ok=True)
@@ -128,7 +136,11 @@ def preparar(baixar=_baixar):
             finally:
                 shutil.rmtree(aberto, ignore_errors=True)
                 zip_.unlink(missing_ok=True)
-        if not MODELO.exists():
+        if cpu is None:
+            cpu = placa() is False
+        if cpu and not MODELO_CPU.exists():
+            _baixar_conferido(MODELO_CPU_URL, MODELO_CPU, MODELO_CPU_SHA, baixar)
+        if not cpu and not MODELO.exists():
             _baixar_conferido(MODELO_URL, MODELO, MODELO_SHA, baixar)
 
 
@@ -143,8 +155,8 @@ def aquecer():
     marca = PASTA / f"aquecido-{VERSAO}"
     with _preparo:
         preparar()
-        if marca.exists():
-            return
+        if marca.exists() or placa() is False:
+            return                         # sem placa não há o que compilar
         m = Motor()
         try:
             if m.placa_em_uso:
@@ -169,19 +181,49 @@ def preparar_em_segundo_plano():
 
 
 # ---------------- escolha da placa ----------------
-def placa_dedicada(linhas):
-    """O índice da primeira placa dedicada na lista do Vulkan, ou None.
+def escolher_placa(linhas):
+    """Da lista de placas que o Vulkan imprime, o índice da que o motor usa, ou
+    False quando não há nenhuma.
 
     O Vulkan lista também a placa integrada do processador, e às vezes ela vem
     primeiro: num notebook com Intel Iris Xe e RTX 4050, a Intel é a 0. A
-    dedicada tem memória própria, que o Vulkan marca como `uma: 0`."""
+    dedicada tem memória própria, que o Vulkan marca como `uma: 0`, e vem antes.
+    Só com a integrada, é ela que trabalha."""
     placas = {}
     for linha in linhas:
         m = re.search(r"ggml_vulkan: (\d+) = .*\| uma: (\d)", linha)
         if m:
             placas[int(m.group(1))] = m.group(2) == "0"
+    if not placas:
+        return False
     dedicadas = [i for i, dedicada in sorted(placas.items()) if dedicada]
-    return dedicadas[0] if dedicadas else None
+    return dedicadas[0] if dedicadas else min(placas)
+
+
+_placa = None     # ainda não sondada; depois, o índice da placa ou False
+
+
+def placa():
+    """A placa que o motor usa nesta máquina, sondada uma vez por abertura do
+    programa. No Windows o servidor, chamado sem modelo, carrega as bibliotecas
+    de placa, imprime a lista do Vulkan e sai, em 1 s. Sem Vulkan na máquina, a
+    biblioteca de placa nem carrega e a lista vem vazia. No Mac, o Apple Silicon
+    tem Metal, e o pacote do Mac Intel é só de processador."""
+    global _placa
+    if _placa is None:
+        if MAC:
+            _placa = 0 if PACOTE.endswith("arm64.zip") else False
+        else:
+            try:
+                saida = subprocess.run(
+                    [str(SERVIDOR), "-m", str(PASTA / "sonda-sem-modelo.bin")], cwd=str(SERVIDOR_DIR),
+                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120,
+                    creationflags=0x08000000).stdout                # CREATE_NO_WINDOW
+                _placa = escolher_placa(saida.decode("utf-8", "replace").splitlines())
+            except (OSError, subprocess.TimeoutExpired) as e:
+                print(f"[motor] a sonda de placa falhou, seguindo no processador: {e}", file=sys.stderr)
+                _placa = False
+    return _placa
 
 
 # ---------------- comunicação ----------------
@@ -269,14 +311,12 @@ def _prender_ao_programa(processo):
 class Motor:
     """Um whisper-server com o modelo carregado. Criar sobe o processo;
     encerrar() devolve a memória da placa."""
-    placa = None      # escolhida na primeira subida, vale até o programa fechar
-    sem_placa = False # a máquina não tem placa que o motor use
 
     def __init__(self):
         preparar()
         self.processo = None
         self.porta = None
-        self.cpu = Motor.sem_placa
+        self.cpu = placa() is False
         self.placa_em_uso = False
         self.uso = threading.Lock()      # liberar espera a transcrição em curso
         _vivos.add(self)
@@ -289,8 +329,6 @@ class Motor:
             linhas, motivo = self._tentar()
             if motivo is None:
                 return
-            if motivo == "placa":
-                continue                  # a placa dedicada foi escolhida agora
             if self.cpu:
                 raise RuntimeError("o motor não subiu: " + " | ".join(linhas[-5:]))
             print("[motor] a placa não carregou o modelo, seguindo no processador:\n  "
@@ -298,17 +336,19 @@ class Motor:
             self.cpu = True
 
     def _tentar(self):
+        if self.cpu:
+            preparar(cpu=True)            # a placa falhou: o modelo do processador pode faltar
         self.porta = _porta_livre()
         # Na placa, 4 threads bastam e mais delas só disputam o processador
         # (medido: 0,95 s com 4 contra 1,0 s com 8). Sem placa, elas fazem a conta.
         threads = min(8, os.cpu_count() or 4) if self.cpu else 4
-        args = [str(SERVIDOR), "-m", str(MODELO), "-l", "pt", "-bs", "5",
+        args = [str(SERVIDOR), "-m", str(MODELO_CPU if self.cpu else MODELO), "-l", "pt", "-bs", "5",
                 "--vad", "-vm", str(VAD), "-t", str(threads),
                 "--host", "127.0.0.1", "--port", str(self.porta)]
         if self.cpu:
             args.append("-ng")
-        elif Motor.placa:
-            args += ["-dev", str(Motor.placa)]
+        elif placa():
+            args += ["-dev", str(placa())]
         self.processo = subprocess.Popen(
             args, cwd=str(SERVIDOR_DIR), stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -331,23 +371,19 @@ class Motor:
         limite = time.time() + ESPERA_SUBIDA
         while not _aberta(self.porta):
             time.sleep(0.1)
-            if Motor.placa is None and not self.cpu and any("whisper_backend_init_gpu" in l for l in linhas):
-                Motor.placa = placa_dedicada(linhas) or 0
-                if any("whisper_backend_init_gpu: no GPU found" in l for l in linhas):
-                    Motor.sem_placa = self.cpu = True     # sobe com as threads do processador
-                    self.encerrar()
-                    return linhas, "placa"
-                if Motor.placa:
-                    self.encerrar()       # a integrada veio primeiro: sobe na dedicada
-                    return linhas, "placa"
             if self.processo.poll() is not None or time.time() > limite:
                 self.encerrar()
                 return linhas, "falhou"
         usado = next((l.split("using ")[1].removesuffix(" backend") for l in linhas
                       if "whisper_backend_init_gpu: using" in l), None)
+        if not self.cpu and not usado:
+            # a placa não iniciou e o servidor ficou no processador com o modelo
+            # da placa, devagar: melhor subir de vez no modo do processador
+            self.encerrar()
+            return linhas, "falhou"
         nome = next((l.split(" = ", 1)[1].split(" | ")[0] for l in linhas
-                     if f"ggml_vulkan: {Motor.placa or 0} = " in l), None)
-        self.placa_em_uso = bool(usado) and not self.cpu
+                     if f"ggml_vulkan: {placa() or 0} = " in l), None)
+        self.placa_em_uso = not self.cpu
         print(f"[motor] {f'placa {usado}' if self.placa_em_uso else 'processador'}"
               f"{f' ({nome})' if nome and self.placa_em_uso else ''}", file=sys.stderr)
         return linhas, None
@@ -415,10 +451,10 @@ def _autoteste():
     notebook = ["ggml_vulkan: Found 2 Vulkan devices:",
                 "ggml_vulkan: 0 = Intel(R) Iris(R) Xe Graphics (Intel Corporation) | uma: 1 | fp16: 1",
                 "ggml_vulkan: 1 = NVIDIA GeForce RTX 4050 Laptop GPU (NVIDIA) | uma: 0 | fp16: 1"]
-    assert placa_dedicada(notebook) == 1
-    assert placa_dedicada(notebook[:2]) is None, "só a integrada: fica a padrão"
-    assert placa_dedicada(["ggml_vulkan: 0 = AMD Radeon RX 7600 | uma: 0 | fp16: 1"]) == 0
-    assert placa_dedicada([]) is None, "Mac (Metal) não lista nada"
+    assert escolher_placa(notebook) == 1, "a dedicada vem antes da integrada"
+    assert escolher_placa(notebook[:2]) == 0, "só a integrada: é ela que trabalha"
+    assert escolher_placa(["ggml_vulkan: 0 = AMD Radeon RX 7600 | uma: 0 | fp16: 1"]) == 0
+    assert escolher_placa(["error: failed to initialize whisper context"]) is False, "sem Vulkan"
 
     audio = np.sin(np.linspace(0, 400, TAXA)).astype(np.float32)
     wav = _wav(audio)
@@ -429,8 +465,9 @@ def _autoteste():
     assert corpo.count(f"--{fronteira}".encode()) == 3 and corpo.endswith(f"--{fronteira}--\r\n".encode())
     assert "Abajur, Claude Code.".encode() in corpo and wav in corpo
 
-    global PASTA, SERVIDOR_DIR, SERVIDOR, VAD, MODELO
-    salvo = PASTA, SERVIDOR_DIR, SERVIDOR, VAD, MODELO
+    global PASTA, SERVIDOR_DIR, SERVIDOR, VAD, MODELO, MODELO_CPU, MODELO_SHA, MODELO_CPU_SHA, _placa
+    salvo = PASTA, SERVIDOR_DIR, SERVIDOR, VAD, MODELO, MODELO_CPU, MODELO_SHA, MODELO_CPU_SHA, _placa
+    sha_pacote = PACOTE_SHA[PACOTE]
     with tempfile.TemporaryDirectory() as pasta:
         fonte = Path(pasta) / "fonte"
         fonte.mkdir()
@@ -438,40 +475,47 @@ def _autoteste():
         with zipfile.ZipFile(pacote, "w") as z:
             z.writestr(SERVIDOR.name, "binário")
             z.writestr(VAD.name, "vad")
-        (fonte / "modelo.bin").write_bytes(b"pesos" * 1000)
+        (fonte / "f16.bin").write_bytes(b"pesos" * 1000)
+        (fonte / "q8.bin").write_bytes(b"oito" * 1000)
         PASTA = Path(pasta) / "motor"
         SERVIDOR_DIR = PASTA / VERSAO
-        SERVIDOR, VAD, MODELO = SERVIDOR_DIR / SERVIDOR.name, SERVIDOR_DIR / VAD.name, PASTA / MODELO.name
+        SERVIDOR, VAD = SERVIDOR_DIR / SERVIDOR.name, SERVIDOR_DIR / VAD.name
+        MODELO, MODELO_CPU = PASTA / MODELO.name, PASTA / MODELO_CPU.name
+        origem = {PACOTE_URL: pacote, MODELO_URL: fonte / "f16.bin", MODELO_CPU_URL: fonte / "q8.bin"}
         pedidos = []
 
         def copia(url, destino):
             pedidos.append(url)
             parcial = destino.with_name(destino.name + ".parcial")
-            shutil.copy(pacote if url == PACOTE_URL else fonte / "modelo.bin", parcial)
+            shutil.copy(origem[url], parcial)
             return parcial
 
-        sha_modelo, sha_pacote = globals()["MODELO_SHA"], PACOTE_SHA[PACOTE]
-        globals()["MODELO_SHA"] = _sha256(fonte / "modelo.bin")
+        MODELO_SHA, MODELO_CPU_SHA = _sha256(fonte / "f16.bin"), _sha256(fonte / "q8.bin")
         PACOTE_SHA[PACOTE] = _sha256(pacote)
         try:
+            _placa = 1                                       # máquina com placa
             preparar(copia)
-            assert SERVIDOR.read_text("utf-8") == "binário" and VAD.exists() and MODELO.exists()
-            assert len(pedidos) == 2
+            assert SERVIDOR.read_text("utf-8") == "binário" and VAD.exists()
+            assert pedidos == [PACOTE_URL, MODELO_URL], "com placa, só o modelo da placa"
             preparar(copia)
             assert len(pedidos) == 2, "com tudo no lugar, nada é baixado de novo"
             assert not list(PASTA.glob("*.parcial")) and not list(PASTA.glob("*.zip"))
 
-            MODELO.unlink()
-            globals()["MODELO_SHA"] = "0" * 64
+            preparar(copia, cpu=True)                        # a placa falhou
+            assert pedidos[2:] == [MODELO_CPU_URL] and MODELO_CPU.read_bytes() == b"oito" * 1000
+
+            MODELO_CPU.unlink()
+            _placa = False                                   # máquina sem placa
+            MODELO_CPU_SHA = "0" * 64
             try:
                 preparar(copia)
                 raise AssertionError("aceitou modelo que não confere")
             except OSError:
                 pass
-            assert not MODELO.exists() and not list(PASTA.glob("*.parcial"))
+            assert not MODELO_CPU.exists() and not list(PASTA.glob("*.parcial"))
         finally:
-            globals()["MODELO_SHA"], PACOTE_SHA[PACOTE] = sha_modelo, sha_pacote
-            PASTA, SERVIDOR_DIR, SERVIDOR, VAD, MODELO = salvo
+            PASTA, SERVIDOR_DIR, SERVIDOR, VAD, MODELO, MODELO_CPU, MODELO_SHA, MODELO_CPU_SHA, _placa = salvo
+            PACOTE_SHA[PACOTE] = sha_pacote
     print("motor: autoteste ok")
 
 
@@ -480,8 +524,11 @@ if __name__ == "__main__":
         # usado pelo instalador: baixa o que faltar, mostrando o andamento
         sys.stdout.reconfigure(encoding="utf-8")
         preparar(lambda url, destino: _baixar(url, destino, mostrar=True))
-        print("  Preparando a placa de vídeo (só na primeira vez, pode levar um minuto)...", flush=True)
-        aquecer()
+        if placa() is False:
+            print("  Sem placa de vídeo que o motor use: a transcrição roda no processador.")
+        else:
+            print("  Preparando a placa de vídeo (só na primeira vez, pode levar um minuto)...", flush=True)
+            aquecer()
         print("motor pronto")
     elif len(sys.argv) > 1:
         # motor.py arquivo.wav [...]: transcreve com o motor de verdade e mede

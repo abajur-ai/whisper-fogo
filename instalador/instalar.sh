@@ -150,7 +150,7 @@ ok "Bibliotecas instaladas"
 
 # -------------------------------------------------------------------- modelos
 titulo "Baixando o motor e o modelo de transcrição"
-echo "  Motor whisper.cpp e modelo large-v3-turbo, 1,6 GB. Só acontece uma vez."
+echo "  Motor whisper.cpp e modelo large-v3-turbo: 1,6 GB no Apple Silicon, 0,9 GB no Mac Intel. Só acontece uma vez."
 # O motor e o modelo moram na pasta de dados, fora do aplicativo assinado.
 PYTHONDONTWRITEBYTECODE=1 "$PYTHON" "$DESTINO/motor.py" --preparar \
   || { erro "Não consegui baixar o motor. Confira a conexão e rode de novo: o download continua de onde parou."; exit 1; }

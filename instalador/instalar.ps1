@@ -82,7 +82,7 @@ if ($modoCPU) {
 # --------------------------------------------------------------- o que baixar
 Titulo "O que vai ser instalado"
 Write-Host "  Pasta            : $DESTINO"
-Write-Host "  Transcrição      : Whisper large-v3-turbo (1,6 GB), motor whisper.cpp"
+Write-Host "  Transcrição      : Whisper large-v3-turbo, motor whisper.cpp"
 Write-Host ""
 
 # ------------------------------------------------------------------- programa
@@ -146,7 +146,7 @@ Ok "Bibliotecas instaladas"
 
 # ------------------------------------------------------------------- modelos
 Titulo "Baixando o motor e o modelo de transcrição"
-Write-Host "  Motor whisper.cpp e modelo large-v3-turbo, 1,6 GB. Só acontece uma vez."
+Write-Host "  Motor whisper.cpp e modelo large-v3-turbo: 1,6 GB com placa de vídeo, 0,9 GB sem. Só acontece uma vez."
 $py = "$DESTINO\.venv\Scripts\python.exe"
 & $py (Join-Path $DESTINO "motor.py") --preparar
 if ($LASTEXITCODE -ne 0) { Erro "Não consegui baixar o motor. Confira a conexão e rode o instalador de novo: o download continua de onde parou."; Read-Host; exit 1 }
