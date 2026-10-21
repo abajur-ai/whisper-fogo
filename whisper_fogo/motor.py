@@ -290,7 +290,7 @@ def _prender_ao_programa(processo):
     ficaria órfão segurando a memória da placa."""
     global _job
     if MAC:
-        return  # ponytail: no Mac só o atexit; processo órfão após queda bruta fica até o logout
+        return                          # no Mac, ver encerrar_orfaos()
     import ctypes
     from ctypes import wintypes
     k32 = ctypes.windll.kernel32
@@ -449,6 +449,15 @@ def encerrar_todos():
     """O servidor sai junto com o programa."""
     for m in list(_vivos):
         m.encerrar()
+
+
+def encerrar_orfaos():
+    """No Mac não há Job Object: se o programa for encerrado à força, o servidor
+    fica para trás segurando memória. O programa é de instância única, então ao
+    abrir qualquer servidor desta pasta é sobra da execução anterior."""
+    if MAC:
+        subprocess.run(["pkill", "-f", str(PASTA / "motor-whispercpp")],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 atexit.register(encerrar_todos)

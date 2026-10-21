@@ -458,14 +458,10 @@ class WhisperFogo:
 
     def atualizar(self):
         """Só com o programa parado: uma transcrição em curso não é interrompida.
-        No macOS o programa é um aplicativo assinado, que não se altera depois de
-        instalado: lá a atualização abre a página da versão para baixar."""
+        No macOS a atualização troca o código na pasta de dados e não toca no
+        aplicativo assinado, então as permissões do sistema continuam valendo."""
         publicada = self.atualizacao
         if not publicada:
-            return
-        if MAC:
-            import webbrowser
-            webbrowser.open(publicada["pagina"])
             return
         if self.gravando or self.fila.unfinished_tasks:
             self.avisar("Termine a transcrição em curso e tente atualizar de novo.")
@@ -521,6 +517,13 @@ def instancia_unica():
 def reiniciar(app):
     """Abre a versão nova e fecha esta. O mutex é solto antes, senão a nova
     instância acharia esta ainda rodando e sairia."""
+    if MAC:
+        # a trava sai antes, e o aplicativo é aberto de novo pelo sistema, que é
+        # o caminho que mantém as permissões em nome do Whisper Fogo
+        (DADOS / "instancia.lock").unlink(missing_ok=True)
+        subprocess.Popen(["open", "-n", str(Path(sys.executable).resolve().parents[2])])
+        app.tray.stop()
+        return
     if _mutex:
         kernel32.CloseHandle(_mutex)
     pythonw = BASE / ".venv" / "Scripts" / "pythonw.exe"
@@ -558,6 +561,7 @@ def main():
         print("Whisper Fogo já está rodando.", file=sys.stderr)
         return
     iniciar_com_o_sistema()
+    motor.encerrar_orfaos()
     motor.preparar_em_segundo_plano()
     app = WhisperFogo()
     app.teclado = Teclado(app)

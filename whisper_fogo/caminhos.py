@@ -2,11 +2,11 @@
 
 No Windows os dois moram na mesma pasta, que é onde o programa é instalado.
 
-No macOS o programa é um aplicativo assinado, e aplicativo assinado não se
-altera depois de instalado: qualquer arquivo escrito lá dentro invalidaria a
-assinatura e o sistema passaria a tratar o programa como adulterado. Por isso o
-que nasce durante o uso, como o histórico de ditados e o dicionário que você
-ensina, mora na pasta de dados que o próprio macOS reserva para cada programa.
+No macOS o aplicativo assinado é só o interpretador, e é a ele que o sistema
+concede microfone e acessibilidade, presos à assinatura. Para que atualizar o
+programa não mude a assinatura (e não peça as permissões de novo), o código fica
+em `app/` dentro da pasta de dados que o macOS reserva para cada programa, ao
+lado do histórico de ditados e do dicionário que você ensina.
 """
 import sys
 from pathlib import Path

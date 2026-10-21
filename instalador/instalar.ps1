@@ -117,6 +117,10 @@ if (Test-Path (Join-Path $origem "whisper_fogo\voz.py")) {
     if ($versao) { Ok "Programa baixado: versão $versao" } else { Ok "Programa baixado" }
 }
 Copy-Item (Join-Path $origem "whisper_fogo\*") $DESTINO -Recurse -Force
+# A revisão de texto por modelo local saiu do programa na versão 1.4.
+foreach ($velho in "llama", "modelos", "limpar.py") {
+    Remove-Item (Join-Path $DESTINO $velho) -Recurse -Force -ErrorAction SilentlyContinue
+}
 if ($versao) {
     # UTF-8 sem BOM: o programa lê este arquivo como JSON puro
     $registro = @{ versao = $versao; instalada_em = (Get-Date -Format "dd/MM/yyyy HH:mm") } | ConvertTo-Json

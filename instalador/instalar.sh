@@ -15,18 +15,21 @@ set -euo pipefail
 # entram desde já, para que o que já está na máquina seja reaproveitado.
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-# O interpretador, as bibliotecas e o código moram dentro do próprio aplicativo.
-# É o que faz o macOS identificar um programa só, com o nome e o ícone do
-# Whisper Fogo, na hora de pedir microfone e acessibilidade.
+# O interpretador que roda aqui usa a biblioteca padrão de dentro do aplicativo
+# assinado: nada de gravar arquivo compilado lá dentro.
+export PYTHONDONTWRITEBYTECODE=1
+
+# O aplicativo é só o interpretador, com o nome e o ícone do Whisper Fogo: é a
+# ele que o macOS concede microfone e acessibilidade. A permissão fica presa à
+# assinatura do aplicativo, então ele não muda entre versões. O código, as
+# bibliotecas, o modelo e os dados de uso moram na pasta de dados, e é só ela
+# que a atualização troca.
 APP="$HOME/Applications/Whisper Fogo.app"
 RECURSOS="$APP/Contents/Resources"
-DESTINO="$RECURSOS/app"
-VENV="$RECURSOS/venv"
-PYTHON="$VENV/bin/python"
-# O aplicativo é assinado, e aplicativo assinado não muda depois de instalado.
-# O que nasce durante o uso, como o histórico e os modelos, mora na pasta de
-# dados que o macOS reserva para cada programa.
 DADOS="$HOME/Library/Application Support/WhisperFogo"
+DESTINO="$DADOS/app"
+VENV="$DADOS/venv"
+PYTHON="$VENV/bin/python"
 RELEASE="https://api.github.com/repos/abajur-ai/whisper-fogo/releases/latest"
 REPO_ZIP="https://github.com/abajur-ai/whisper-fogo/archive/refs/heads/main.zip"
 
@@ -86,7 +89,7 @@ ok "Conexão com a internet"
 
 # ------------------------------------------------------------------- programa
 titulo "Instalando o programa"
-mkdir -p "$DESTINO" "$APP/Contents/MacOS" "$RECURSOS" "$DADOS"
+mkdir -p "$DESTINO" "$DADOS"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -111,7 +114,16 @@ else
   origem="$(dirname "$(dirname "$(find "$tmp" -maxdepth 3 -path '*/whisper_fogo/voz.py' | head -1)")")"
   if [[ -n "$versao" ]]; then ok "Programa baixado: versão $versao"; else ok "Programa baixado"; fi
 fi
+# O programa aberto é fechado antes, senão ele seguiria com o código antigo e o
+# novo não abriria (instância única).
+pkill -f "$APP/Contents/MacOS/whisper-fogo" 2>/dev/null || true
+pkill -f "$DADOS/motor/motor-whispercpp" 2>/dev/null || true
+# O código é trocado inteiro: arquivo de versão antiga não fica para trás. Os
+# dados da pessoa ficam na raiz da pasta de dados e não são tocados.
+rm -rf "$DESTINO" && mkdir -p "$DESTINO"
 cp -R "$origem/whisper_fogo/." "$DESTINO/"
+# A revisão de texto por modelo local saiu do programa na versão 1.4.
+rm -rf "$DADOS/llama" "$DADOS/modelos"
 if [[ -n "$versao" ]]; then
   printf '{\n  "versao": "%s",\n  "instalada_em": "%s"\n}\n' "$versao" "$(date '+%d/%m/%Y %H:%M')" \
     > "$DADOS/versao_instalada.json"
@@ -129,17 +141,30 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 ok "uv pronto"
 
-# O interpretador vem para dentro do aplicativo como arquivo, e não como atalho
-# para uma pasta de fora. O macOS resolve o atalho até o arquivo verdadeiro
-# quando decide de quem é o pedido de permissão, e é o arquivo verdadeiro que
-# ele mostra na lista de Ajustes.
-rm -rf "$VENV" "$RECURSOS/python"
-uv venv --python 3.12 "$tmp/venv-base" >/dev/null
-raiz_python="$("$tmp/venv-base/bin/python" -c \
-  'import os, sys; print(os.path.dirname(os.path.dirname(os.path.realpath(sys.executable))))')"
-cp -R "$raiz_python" "$RECURSOS/python"
-ok "Python embarcado no aplicativo ($(du -sh "$RECURSOS/python" | cut -f1))"
+# O aplicativo de uma instalação anterior é mantido como está quando ainda
+# serve: refeito, ele ganharia outra assinatura, e o macOS pediria microfone e
+# acessibilidade de novo. Só é refeito na primeira instalação, quando a
+# assinatura não confere ou quando vem do formato antigo, com o código dentro.
+refazer_app=1
+if [[ -x "$APP/Contents/MacOS/whisper-fogo" && -x "$RECURSOS/python/bin/python3.12" \
+      && ! -e "$RECURSOS/app" ]] && codesign -v "$APP" >/dev/null 2>&1; then
+  refazer_app=0
+  ok "Aplicativo mantido: as permissões do macOS continuam valendo"
+else
+  # O interpretador vem para dentro do aplicativo como arquivo, e não como
+  # atalho para uma pasta de fora. O macOS resolve o atalho até o arquivo
+  # verdadeiro quando decide de quem é o pedido de permissão, e é o arquivo
+  # verdadeiro que ele mostra na lista de Ajustes.
+  rm -rf "$APP"
+  mkdir -p "$APP/Contents/MacOS" "$RECURSOS"
+  uv venv --python 3.12 "$tmp/venv-base" >/dev/null
+  raiz_python="$("$tmp/venv-base/bin/python" -c \
+    'import os, sys; print(os.path.dirname(os.path.dirname(os.path.realpath(sys.executable))))')"
+  cp -R "$raiz_python" "$RECURSOS/python"
+  ok "Python embarcado no aplicativo ($(du -sh "$RECURSOS/python" | cut -f1))"
+fi
 
+rm -rf "$VENV"
 uv venv --python "$RECURSOS/python/bin/python3.12" "$VENV" >/dev/null
 ok "Ambiente Python isolado criado"
 
@@ -161,22 +186,30 @@ ok "Motor e modelo no lugar"
 
 # ----------------------------------------------------------------- aplicativo
 titulo "Finalizando o aplicativo"
+# O ponto de entrada abre o programa quando o Finder ou o login lançam o
+# aplicativo. Ele mora nas bibliotecas, fora do aplicativo.
+cp "$origem/instalador/macos/sitecustomize.py" \
+   "$VENV/lib/python3.12/site-packages/sitecustomize.py"
+
+if (( refazer_app )); then
 # O executável do pacote é o próprio interpretador. É assim que o macOS trata
 # tudo como um programa só: a lista de Ajustes mostra uma linha, com o nome e o
 # ícone do Whisper Fogo, em vez do interpretador que roda por baixo.
 cp "$RECURSOS/python/bin/python3.12" "$APP/Contents/MacOS/whisper-fogo"
 chmod +x "$APP/Contents/MacOS/whisper-fogo"
 
-# O interpretador do pacote enxerga as bibliotecas por estas duas peças, e o
-# ponto de entrada abre o programa quando o Finder lança o aplicativo.
+# O interpretador do pacote acha a biblioteca padrão pelo pyvenv.cfg e as
+# bibliotecas do programa, na pasta de dados, por um .pth. Atalho para fora do
+# aplicativo não serve: a assinatura recusa.
 cat > "$APP/Contents/pyvenv.cfg" <<CFG
 home = $RECURSOS/python/bin
 include-system-site-packages = false
 version = $("$PYTHON" -c 'import platform; print(platform.python_version())')
 CFG
-ln -sfn "$RECURSOS/venv/lib" "$APP/Contents/lib"
-cp "$origem/instalador/macos/sitecustomize.py" \
-   "$VENV/lib/python3.12/site-packages/sitecustomize.py"
+mkdir -p "$APP/Contents/lib/python3.12/site-packages"
+printf 'import site; site.addsitedir(%s)\n' \
+  "$("$PYTHON" -c 'import sys, json; print(json.dumps(sys.argv[1]))' "$VENV/lib/python3.12/site-packages")" \
+  > "$APP/Contents/lib/python3.12/site-packages/whisper-fogo.pth"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -191,6 +224,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 cp "$DESTINO/fogo.icns" "$RECURSOS/fogo.icns" 2>/dev/null || true
 ok "Aplicativo criado em ~/Applications"
+fi
 
 # --------------------------------------------------------------------- testes
 titulo "Conferindo a instalação"
@@ -210,9 +244,11 @@ done
 # O Python guarda uma versão compilada de cada módulo na primeira vez que o usa.
 # Deixar essa etapa pronta agora é o que mantém o pacote igual ao que foi
 # assinado, em vez de ele mudar sozinho durante o primeiro uso.
-echo "  Preparando os módulos..."
-"$PYTHON" -m compileall -q "$RECURSOS/python/lib" "$VENV/lib" "$DESTINO" >/dev/null 2>&1 || true
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1   && ok "Aplicativo assinado"   || aviso "Não consegui assinar o aplicativo. Ele funciona, e o pedido de permissão é que fica com o nome do arquivo."
+if (( refazer_app )); then
+  echo "  Preparando os módulos..."
+  PYTHONDONTWRITEBYTECODE= "$RECURSOS/python/bin/python3.12" -m compileall -q "$RECURSOS/python/lib" >/dev/null 2>&1 || true
+  codesign --force --deep --sign - "$APP" >/dev/null 2>&1   && ok "Aplicativo assinado"   || aviso "Não consegui assinar o aplicativo. Ele funciona, e o pedido de permissão é que fica com o nome do arquivo."
+fi
 
 # ------------------------------------------------------------------ na conta
 titulo "Deixando o Whisper Fogo pronto"
@@ -245,6 +281,16 @@ if ! defaults read com.apple.dock persistent-apps 2>/dev/null | grep -qF "$APP_U
     2>/dev/null && killall Dock 2>/dev/null
 fi
 ok "Ícone no Dock"
+
+# A Fn é a tecla do Whisper Fogo. O macOS dá a ela uma ação própria (ditado da
+# Apple, emojis ou troca de idioma), que dispararia junto com cada ditado: ela
+# passa a não fazer nada sozinha, e a escolha anterior fica guardada.
+fn_antes="$(defaults read com.apple.HIToolbox AppleFnUsageType 2>/dev/null || echo padrao)"
+if [[ "$fn_antes" != "0" ]]; then
+  [[ -f "$DADOS/fn_anterior.txt" ]] || echo "$fn_antes" > "$DADOS/fn_anterior.txt"
+  defaults write com.apple.HIToolbox AppleFnUsageType -int 0
+  ok "Tecla Fn reservada para o Whisper Fogo"
+fi
 
 # Sobe agora, para o ícone já aparecer na barra de menus.
 open "$APP" 2>/dev/null && ok "Whisper Fogo aberto"

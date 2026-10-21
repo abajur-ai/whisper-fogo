@@ -17,8 +17,10 @@ sys.dont_write_bytecode = True
 
 if (os.path.basename(sys.executable) == "whisper-fogo"
         and sys.argv[:1] == [""]):          # sem argumento: veio do Finder
-    conteudo = os.path.dirname(os.path.dirname(os.path.realpath(sys.executable)))
-    programa = os.path.join(conteudo, "Resources", "app")
+    # O código mora na pasta de dados, fora do aplicativo assinado: atualizar o
+    # programa não muda o aplicativo, e as permissões do macOS continuam valendo.
+    programa = os.path.join(os.path.expanduser("~"), "Library", "Application Support",
+                            "WhisperFogo", "app")
     voz = os.path.join(programa, "voz.py")
     sys.path.insert(0, programa)        # os módulos do programa moram aqui
     sys.argv = [voz]

@@ -19,7 +19,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from caminhos import CODIGO, DADOS
+from caminhos import CODIGO, DADOS, MAC
 REPOSITORIO = "abajur-ai/whisper-fogo"
 API = f"https://api.github.com/repos/{REPOSITORIO}/releases/latest"
 REGISTRO = DADOS / "versao_instalada.json"
@@ -82,17 +82,22 @@ def _uv():
     achado = shutil.which("uv")
     if achado:
         return achado
-    padrao = Path.home() / ".local" / "bin" / "uv.exe"
-    if padrao.exists():
-        return str(padrao)
+    # aberto pelo login do Mac, o programa recebe um PATH curto, sem o Homebrew
+    for padrao in (Path.home() / ".local" / "bin" / ("uv" if MAC else "uv.exe"),
+                   Path("/opt/homebrew/bin/uv"), Path("/usr/local/bin/uv")):
+        if padrao.exists():
+            return str(padrao)
     raise OSError("o instalador de dependências (uv) não foi encontrado")
 
 
 def _instalar_dependencias(requisitos, destino):
-    python = destino / ".venv" / "Scripts" / "python.exe"
+    if MAC:                               # as bibliotecas moram ao lado do código, na pasta de dados
+        python = DADOS / "venv" / "bin" / "python"
+    else:
+        python = destino / ".venv" / "Scripts" / "python.exe"
     subprocess.run([_uv(), "pip", "install", "--python", str(python), "-r", str(requisitos)],
                    check=True, capture_output=True, timeout=900,
-                   creationflags=0x08000000)              # CREATE_NO_WINDOW: sem janela preta
+                   creationflags=0 if MAC else 0x08000000)   # CREATE_NO_WINDOW: sem janela preta
 
 
 def aplicar(publicada, destino=CODIGO, baixar=_baixar):
@@ -126,7 +131,7 @@ def aplicar(publicada, destino=CODIGO, baixar=_baixar):
             (destino / relativo).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(raiz / relativo, destino / relativo)
 
-    (destino / REGISTRO.name).write_text(
+    REGISTRO.write_text(
         json.dumps({"versao": publicada["versao"], "instalada_em": time.strftime("%d/%m/%Y %H:%M")},
                    ensure_ascii=False, indent=2), encoding="utf-8")
     return len(arquivos)
