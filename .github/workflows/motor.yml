@@ -84,9 +84,9 @@ jobs:
       matrix:
         include:
           - arq: arm64
-            opcoes: -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON
+            opcoes: -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON
           - arq: x64
-            opcoes: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DGGML_METAL=OFF -DGGML_NATIVE=OFF
+            opcoes: -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_OSX_ARCHITECTURES=x86_64 -DGGML_METAL=OFF -DGGML_NATIVE=OFF
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,9 +95,10 @@ jobs:
 
       - name: Compilar
         run: |
-          # sem o BLAS do Accelerate, que exigiria macOS 13.3: o binário roda do macOS 12 em diante
+          # sem o BLAS do Accelerate, que exigiria macOS 13.3: o binário roda do macOS 11 (Apple Silicon)
+          # e do 10.15 (Intel) em diante
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DGGML_BLAS=OFF ${{ matrix.opcoes }} \
+            -DGGML_BLAS=OFF ${{ matrix.opcoes }} \
             -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON -DWHISPER_BUILD_SERVER=ON -DWHISPER_SDL2=OFF
           cmake --build build --config Release -j 4 --target whisper-server
 
@@ -109,6 +110,7 @@ jobs:
           cp LICENSE motor/LICENSE-whisper.cpp.txt
           file motor/whisper-server
           otool -L motor/whisper-server
+          otool -l motor/whisper-server | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX"
           (cd motor && zip -q -X ../motor-macos-${{ matrix.arq }}.zip *)
 
       - uses: actions/upload-artifact@v4
