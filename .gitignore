@@ -11,6 +11,7 @@ atalhos.json
 versao_instalada.json
 versao_anterior/
 voz.log
+painel.log
 instancia.lock
 falha-*.wav
 *.tmp
