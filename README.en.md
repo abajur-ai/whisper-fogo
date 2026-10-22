@@ -52,6 +52,40 @@ them.
 
 ---
 
+## New in version 1.6: the Mac as ready as Windows
+
+Whisper Fogo is no longer beta on macOS. Installation, the `Fn` key, microphone,
+pasting, admin panel, Dictionary, learning from your corrections, starting with the
+system and updating from the menu went through the same test script on both
+systems, end to end, by hand, including shutting the computer down and back on.
+
+- **Permissions that stay.** On the Mac, microphone and accessibility are allowed
+  once. Updates replace the code in the data folder and never touch the app, so
+  macOS keeps recognizing the same Whisper Fogo and asks for nothing again.
+- **Updates from the menu on the Mac too**, just like on Windows: download, swap and
+  reopen on its own, keeping history, Dictionary and learned spellings.
+- **Its own name and icon everywhere in the system.** On Windows the app runs as
+  `Whisper Fogo.exe`, with Whisper Fogo's name, publisher and icon in Task Manager,
+  in the startup apps, in Settings and in the microphone-in-use notice. On the Mac,
+  the app and the engine show up as Whisper Fogo in System Settings and in Activity
+  Monitor.
+- **Starts with the system through the official path**, somewhere anyone can find it
+  and turn it off: Task Manager > Startup apps on Windows, System Settings > General >
+  Login Items on the Mac.
+- **The `Fn` key belongs to Whisper Fogo.** The Mac installer takes the system's own
+  `Fn` action (Apple dictation, emoji or input source switching), which would fire
+  with every dictation, and keeps your previous choice.
+- **Older computers.** The Mac engine runs from macOS 11 on Apple Silicon and from
+  10.15 on Intel. The Windows installer works on the first Windows 10 releases,
+  which shipped without `curl`.
+
+**Validated end to end on:** Windows 11 (laptop with an RTX 4050 and Intel Iris Xe)
+and macOS 26 (8 GB MacBook Air M1). Windows 10, macOS 11 to 15 and Intel Macs are
+covered by the installer and by the engine, built for those versions, but without a
+test machine yet: reports are welcome (see [Contributing](#contributing)).
+
+---
+
 ## New in version 1.5: fast on any computer
 
 Up to version 1.4, Whisper Fogo was only fast with an **NVIDIA** graphics card. The
@@ -301,7 +335,7 @@ Portuguese.
 
 |  | Minimum | Recommended | Ideal |
 |---|---|---|---|
-| **System** | Windows 10, 64-bit | Windows 10 or 11 | Windows 11 |
+| **System** | Windows 10, 64-bit | Windows 10 or 11 | Windows 11 (validated) |
 | **Graphics card** | none, runs on the processor | recent integrated (Intel Iris Xe, AMD Radeon) | dedicated NVIDIA, AMD or Intel Arc with 4 GB or more |
 | **Free graphics memory** | zero | uses system memory | 2 GB |
 | **RAM** | 4 GB | 8 GB | 16 GB or more |
@@ -313,7 +347,7 @@ Portuguese.
 |  | Minimum | Recommended | Ideal |
 |---|---|---|---|
 | **Chip** | Intel Core i5 (processor only) | Apple Silicon M1 or M2 | Apple Silicon Pro, Max or M3 and later |
-| **System** | macOS 10.15 (Intel) or 11 (Apple Silicon) | macOS 13 | macOS 14 or newer |
+| **System** | macOS 10.15 (Intel) or 11 (Apple Silicon) | macOS 13 | macOS 14 or newer (validated on 26) |
 | **RAM** | 8 GB | 8 GB | 16 GB or more |
 | **Disk** | 1.1 GB | 1.8 GB | 1.8 GB |
 | **Speed** | not measured (Intel, processor only) | ~6x real time (M1) | not measured |
@@ -416,12 +450,13 @@ down on its own. Each file does one thing:
 | `caminhos.py` | Where the code and the data live on each system |
 | `executavel.py` | The Windows `Whisper Fogo.exe`, with the app's name and icon |
 
-**Tests:** 152 asserts, running without a microphone or a graphics card, and without
+**Tests:** 153 asserts, running without a microphone or a graphics card, and without
 touching your data:
 
 ```bash
 cd whisper_fogo
 python corrigir.py         # dictionary and expansions
+python aprendizado.py      # what becomes a spelling from your corrections
 python observador.py       # anchor and watch window
 python tema.py             # title trimming and scroll bar
 python grafias.py          # Dictionary rules
@@ -485,14 +520,17 @@ own. With no card at all, it runs on the processor, more slowly.
 The model loads the first time you speak, which takes a few seconds. After that it
 stays in memory until you go 10 minutes without speaking.
 
-**I was already on version 1.4. What changes for me?**
-Nothing on screen or in how you use it: history, Dictionary, shortcuts and learned
-spellings stay as they are. After updating from the icon menu, the app downloads the
-new engine and the model on its own, in the background, as soon as it opens. If you
-dictate before the download finishes, that first transcription waits for it. On the
-Mac, coming from 1.4 means installing one last time from the download button and
-allowing microphone and accessibility again; from then on, updates come from the menu
-and the permissions stay.
+**I was already on an earlier version. What changes for me?**
+On Windows, update from the icon menu: history, Dictionary, shortcuts and learned
+spellings stay as they are, and from the next start the app runs as
+`Whisper Fogo.exe` and fixes its shortcuts on its own. Coming from 1.4, you also get
+the new engine and the model, downloaded in the background as soon as the app opens;
+if you dictate before the download finishes, that first transcription waits for it.
+
+On the Mac, coming from 1.5 or earlier means installing one last time from the
+download button (the menu's update item takes you there) and allowing microphone and
+accessibility again. From then on, updates come from the menu and the permissions
+stay.
 
 **Does it work in English?**
 The recognizer understands dozens of languages, but everything here is tuned for

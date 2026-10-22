@@ -48,6 +48,40 @@ não há servidor para cair, não há limite de minutos.
 
 ---
 
+## Novo na versão 1.6: Mac pronto como o Windows
+
+O Whisper Fogo deixa de ser beta no macOS. Instalação, tecla `Fn`, microfone,
+colagem, painel, Dicionário, aprendizado pela correção, abertura junto com o
+sistema e atualização pelo menu passaram pelo mesmo roteiro de testes nos dois
+sistemas, de ponta a ponta, na mão, incluindo desligar e ligar o computador.
+
+- **Permissões que ficam.** No Mac, microfone e acessibilidade são autorizados uma
+  vez só. A atualização troca o código na pasta de dados e não toca no aplicativo,
+  então o macOS continua reconhecendo o mesmo Whisper Fogo e não pede nada de novo.
+- **Atualização pelo menu também no Mac**, igual ao Windows: baixa, troca e reabre
+  sozinho, preservando histórico, Dicionário e grafias aprendidas.
+- **Nome e ícone próprios em todo o sistema.** No Windows o programa roda pelo
+  `Whisper Fogo.exe`, com nome, editora e ícone do Whisper Fogo no Gerenciador de
+  Tarefas, nos aplicativos de inicialização, nas Configurações e no aviso de
+  microfone em uso. No Mac, o aplicativo e o motor aparecem como Whisper Fogo nos
+  Ajustes e no Monitor de Atividade.
+- **Abre junto com o sistema pelo caminho oficial**, num lugar onde qualquer pessoa
+  encontra e desliga: Gerenciador de Tarefas > Aplicativos de inicialização no
+  Windows, Ajustes > Geral > Itens de Início no Mac.
+- **A tecla `Fn` é do Whisper Fogo.** O instalador do Mac tira da `Fn` a ação
+  própria do sistema (ditado da Apple, emojis ou troca de idioma), que dispararia
+  junto com cada ditado, e guarda a escolha anterior.
+- **Computadores mais antigos.** O motor do Mac roda do macOS 11 em diante no Apple
+  Silicon e do 10.15 em diante no Intel. O instalador do Windows funciona nas
+  primeiras versões do Windows 10, sem o `curl` que só veio depois.
+
+**Onde foi validado de ponta a ponta:** Windows 11 (notebook com RTX 4050 e Intel
+Iris Xe) e macOS 26 (MacBook Air M1 de 8 GB). Windows 10, macOS 11 a 15 e Mac Intel
+estão cobertos pelo instalador e pelo motor, compilado para essas versões, mas ainda
+sem máquina de teste: relatos são bem-vindos (veja [Contribuir](#contribuir)).
+
+---
+
 ## Novo na versão 1.5: rápido em qualquer computador
 
 Até a versão 1.4, o Whisper Fogo só era rápido com placa de vídeo **NVIDIA**. O
@@ -292,7 +326,7 @@ Iris Xe integrada e RTX 4050 de 6 GB, com 11 minutos de fala real em português.
 
 |  | Mínimo | Recomendado | Ideal |
 |---|---|---|---|
-| **Sistema** | Windows 10, 64 bits | Windows 10 ou 11 | Windows 11 |
+| **Sistema** | Windows 10, 64 bits | Windows 10 ou 11 | Windows 11 (validado) |
 | **Placa de vídeo** | nenhuma, roda no processador | integrada recente (Intel Iris Xe, AMD Radeon) | dedicada NVIDIA, AMD ou Intel Arc com 4 GB ou mais |
 | **Memória da placa livre** | zero | usa a memória do sistema | 2 GB |
 | **Memória RAM** | 4 GB | 8 GB | 16 GB ou mais |
@@ -304,7 +338,7 @@ Iris Xe integrada e RTX 4050 de 6 GB, com 11 minutos de fala real em português.
 |  | Mínimo | Recomendado | Ideal |
 |---|---|---|---|
 | **Chip** | Intel Core i5 (só processador) | Apple Silicon M1 ou M2 | Apple Silicon Pro, Max ou M3 em diante |
-| **Sistema** | macOS 10.15 (Intel) ou 11 (Apple Silicon) | macOS 13 | macOS 14 ou mais novo |
+| **Sistema** | macOS 10.15 (Intel) ou 11 (Apple Silicon) | macOS 13 | macOS 14 ou mais novo (validado no 26) |
 | **Memória RAM** | 8 GB | 8 GB | 16 GB ou mais |
 | **Disco** | 1,1 GB | 1,8 GB | 1,8 GB |
 | **Velocidade** | não medida (Intel, só processador) | ~6x o tempo real (M1) | não medida |
@@ -405,12 +439,13 @@ Cada arquivo faz uma coisa:
 | `caminhos.py` | Onde ficam o código e os dados em cada sistema |
 | `executavel.py` | O `Whisper Fogo.exe` do Windows, com o nome e o ícone do programa |
 
-**Testes:** 152 asserts, rodando sem microfone e sem placa de vídeo, e sem tocar nos
+**Testes:** 153 asserts, rodando sem microfone e sem placa de vídeo, e sem tocar nos
 seus dados:
 
 ```bash
 cd whisper_fogo
 python corrigir.py         # dicionário e expansões
+python aprendizado.py      # o que vira grafia a partir das correções
 python observador.py       # âncora e janela de observação
 python tema.py             # corte de títulos e barra de rolagem
 python grafias.py          # regras do Dicionário
@@ -475,13 +510,16 @@ Sem placa nenhuma, roda no processador, mais devagar.
 O modelo carrega na primeira vez que você fala, o que leva alguns segundos. Depois
 fica na memória até você passar 10 minutos sem falar.
 
-**Eu já usava a versão 1.4. O que muda para mim?**
-Nada na tela nem no uso: histórico, Dicionário, teclas e grafias aprendidas ficam
-como estão. Depois de atualizar pelo menu do ícone, o programa baixa sozinho o
-motor novo e o modelo, em segundo plano, logo que abre. Se você ditar antes de o
-download terminar, essa primeira transcrição espera por ele. No Mac, quem vem da 1.4
-instala uma última vez pelo botão de download e autoriza microfone e acessibilidade
-de novo; daí em diante, a atualização é pelo menu e as permissões ficam.
+**Eu já usava uma versão anterior. O que muda para mim?**
+No Windows, atualize pelo menu do ícone: histórico, Dicionário, teclas e grafias
+aprendidas ficam como estão, e na abertura seguinte o programa passa a rodar pelo
+`Whisper Fogo.exe` e acerta os atalhos sozinho. Quem vem da 1.4 recebe também o
+motor novo e o modelo, baixados em segundo plano logo que o programa abre; se você
+ditar antes de o download terminar, essa primeira transcrição espera por ele.
+
+No Mac, quem vem da 1.5 ou de antes instala uma última vez pelo botão de download
+(o item de atualizar do menu leva até ele) e autoriza microfone e acessibilidade de
+novo. Daí em diante a atualização é pelo menu e as permissões ficam.
 
 **Ele funciona em inglês?**
 O reconhecedor entende dezenas de idiomas, mas tudo aqui é afinado para português:
