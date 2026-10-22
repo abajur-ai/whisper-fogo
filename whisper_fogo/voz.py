@@ -580,10 +580,18 @@ def iniciar_com_o_mac():
         servico = objc.lookUpClass("SMAppService").mainAppService()
     except Exception:
         return                              # macOS 12 ou anterior
-    ok, erro = servico.registerAndReturnError_(None)
-    if not ok:
-        print(f"[início com o Mac não registrado] {erro}", file=sys.stderr)
+    try:
+        # Sem a descrição do framework no pyobjc, a chamada devolve só o
+        # verdadeiro ou falso, sem o erro: quem diz se valeu é o status.
+        servico.registerAndReturnError_(None)
+        status = servico.status()           # 1 = ligado
+    except Exception as e:
+        print(f"[início com o Mac não registrado] {e}", file=sys.stderr)
         return
+    if status != 1:
+        print(f"[início com o Mac não registrado] status {status}", file=sys.stderr)
+        return
+    print("[início com o Mac registrado em Itens de Início]", file=sys.stderr)
     marca.touch()
     (Path.home() / "Library" / "LaunchAgents" / "ai.whisperfogo.app.plist").unlink(missing_ok=True)
 

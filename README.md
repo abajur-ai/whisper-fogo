@@ -434,19 +434,23 @@ python executavel.py --teste   # Windows: nome, editora e ícone do Whisper Fogo
 | Transcrição | placa NVIDIA, AMD ou Intel (Vulkan), ou processador | placa do Apple Silicon (Metal); Mac Intel no processador |
 | Painel administrativo e Dicionário | sim | sim |
 | Aprender pela sua correção | UI Automation | API de Acessibilidade |
-| Abre com o sistema | sim | sim |
+| Abre com o sistema | Gerenciador de Tarefas > Aplicativos de inicialização | Ajustes > Geral > Itens de Início |
 | Atualização | dentro do programa | dentro do programa |
 
 **No Windows** o Whisper Fogo fica em `AppData\Local\WhisperFogo`, com o Python e
 as bibliotecas numa pasta isolada, atalho no Desktop e no menu Iniciar e a chama na
-bandeja ao lado do relógio.
+bandeja ao lado do relógio. O programa roda pelo `Whisper Fogo.exe`, que leva o nome,
+a editora e o ícone do Whisper Fogo: é assim que ele aparece no Gerenciador de
+Tarefas, nos aplicativos de inicialização, nas Configurações e no aviso de microfone
+em uso.
 
 **No macOS** ele é um aplicativo em `~/Applications`, na barra de menus e no Dock.
 O aplicativo é só o interpretador, com o nome e o ícone do Whisper Fogo, e é a ele
 que o macOS concede microfone e acessibilidade. O código, as bibliotecas, o modelo e
 os seus dados ficam em `~/Library/Application Support/WhisperFogo`, e é só essa
 pasta que a atualização troca: o aplicativo não muda, e as permissões continuam
-valendo.
+valendo. Ele abre junto com o Mac pelo caminho oficial da Apple, na lista de Itens
+de Início dos Ajustes, onde aparece com o próprio nome e ícone e pode ser desligado.
 
 ---
 

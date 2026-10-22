@@ -445,18 +445,22 @@ python executavel.py --teste   # Windows: name, publisher and icon of Whisper Fo
 | Transcription | NVIDIA, AMD or Intel graphics (Vulkan), or processor | Apple Silicon graphics (Metal); Intel Mac on the processor |
 | Admin panel and Dictionary | yes | yes |
 | Learning from your corrections | UI Automation | Accessibility API |
-| Starts with the system | yes | yes |
+| Starts with the system | Task Manager > Startup apps | System Settings > General > Login Items |
 | Updates | inside the app | inside the app |
 
 **On Windows** Whisper Fogo lives in `AppData\Local\WhisperFogo`, with Python and the
 libraries in an isolated folder, shortcuts on the Desktop and in the Start menu and
-the flame in the tray next to the clock.
+the flame in the tray next to the clock. The app runs as `Whisper Fogo.exe`, which
+carries Whisper Fogo's name, publisher and icon: that is how it shows up in Task
+Manager, in the startup apps, in Settings and in the microphone-in-use notice.
 
 **On macOS** it is an app in `~/Applications`, in the menu bar and in the Dock. The
 app is only the interpreter, with Whisper Fogo's name and icon, and it is what macOS
 grants microphone and accessibility to. The code, the libraries, the model and your
 data live in `~/Library/Application Support/WhisperFogo`, and only that folder is
-replaced by updates: the app does not change, and the permissions keep working.
+replaced by updates: the app does not change, and the permissions keep working. It
+opens with the Mac through Apple's official path, in the Login Items list in System
+Settings, where it shows up with its own name and icon and can be turned off.
 
 ---
 
