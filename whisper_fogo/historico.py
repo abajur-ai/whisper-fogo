@@ -162,9 +162,24 @@ def rotular(item):
     return f"  {item['quando']}  {' '.join(item['texto'].split())[:PREVIA]}"
 
 
+def ligar_log():
+    """O painel roda sem console: erro, e até queda do interpretador, vão para o
+    painel.log em vez de sumir."""
+    if sys.stderr is None or not sys.stderr.isatty():
+        try:
+            import faulthandler
+            log = open(DADOS / "painel.log", "a", encoding="utf-8", buffering=1)
+            sys.stderr = sys.stdout = log
+            faulthandler.enable(log)
+            print(f"\n=== painel aberto {time.strftime('%d/%m/%Y %H:%M')} ===", file=log)
+        except Exception:
+            pass
+
+
 def main():
     import tkinter as tk
     from tkinter import font as tkfont
+    ligar_log()
     sys.path.insert(0, str(BASE))
     from clip import escrever
     import tema

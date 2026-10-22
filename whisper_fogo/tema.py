@@ -74,7 +74,7 @@ def barra_de_titulo(janela, titulo, altura=32):
     comctl32.SetWindowSubclass.argtypes = [wt.HWND, SUBCLASSPROC, ctypes.c_size_t, ctypes.c_size_t]
     comctl32.DefSubclassProc.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
     comctl32.DefSubclassProc.restype = LRESULT
-    user32.SendMessageW.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
+    user32.PostMessageW.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
 
     class NCCALCSIZE_PARAMS(ctypes.Structure):
         _fields_ = [("rgrc", wt.RECT * 3), ("lppos", ctypes.c_void_p)]
@@ -107,8 +107,16 @@ def barra_de_titulo(janela, titulo, altura=32):
     rotulo.pack(side="left", fill="y", padx=(12, 0))
 
     def arrastar(_e, alvo=2):                              # 2 = HTCAPTION, 12 = HTTOP
+        # O arrasto do Windows é um laço próprio que chama o Tk de volta a cada
+        # movimento. A mensagem vai para a fila (PostMessage), e não direto
+        # (SendMessage): assim o laço roda a partir do laço de eventos do Tk, como
+        # numa janela comum, e não de dentro desta função, onde o Tk chamaria o
+        # Python sem o interpretador estar pronto e o processo seria abortado.
+        ponto = wt.POINT()
+        user32.GetCursorPos(ctypes.byref(ponto))
         user32.ReleaseCapture()
-        user32.SendMessageW(hwnd, 0x00A1, alvo, 0)        # WM_NCLBUTTONDOWN
+        user32.PostMessageW(hwnd, 0x00A1, alvo,           # WM_NCLBUTTONDOWN
+                            (ponto.y & 0xFFFF) << 16 | (ponto.x & 0xFFFF))
 
     def alternar_maximizada(*_):
         janela.state("normal" if janela.state() == "zoomed" else "zoomed")
